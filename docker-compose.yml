@@ -1,0 +1,83 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: restaurant-saas-db
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-restaurant_saas}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: restaurant-saas-api
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-restaurant_saas}
+      API_PORT: 3000
+      NODE_ENV: development
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      CORS_ORIGIN: http://localhost:3001,http://localhost:3002
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./apps/api:/app/apps/api
+      - ./packages:/app/packages
+      - /app/node_modules
+      - /app/apps/api/node_modules
+    command: sh -c "cd /app/apps/api && pnpm db:migrate:deploy && pnpm db:seed && pnpm dev"
+
+  admin:
+    build:
+      context: .
+      dockerfile: apps/admin/Dockerfile
+    container_name: restaurant-saas-admin
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:3000
+    ports:
+      - "3001:3001"
+    depends_on:
+      - api
+    volumes:
+      - ./apps/admin:/app/apps/admin
+      - ./packages:/app/packages
+      - /app/node_modules
+      - /app/apps/admin/node_modules
+      - /app/apps/admin/.next
+    command: sh -c "cd /app/apps/admin && pnpm dev"
+
+  widget:
+    build:
+      context: .
+      dockerfile: apps/widget/Dockerfile
+    container_name: restaurant-saas-widget
+    environment:
+      VITE_API_URL: http://localhost:3000
+    ports:
+      - "3002:3002"
+    depends_on:
+      - api
+    volumes:
+      - ./apps/widget:/app/apps/widget
+      - ./packages:/app/packages
+      - /app/node_modules
+      - /app/apps/widget/node_modules
+    command: sh -c "cd /app/apps/widget && pnpm dev"
+
+volumes:
+  postgres_data:

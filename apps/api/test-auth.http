@@ -1,0 +1,250 @@
+### Authentication API Tests
+### Base URL
+@baseUrl = http://localhost:3000/api/v1/auth
+@testSlug = test-restaurant
+@testEmail = owner@test.com
+@testPassword = Password123!
+
+### Variables (will be set from responses)
+@accessToken = 
+@refreshToken = 
+
+###
+# 1. Login (Owner)
+POST {{baseUrl}}/login
+Content-Type: application/json
+
+{
+  "slug": "{{testSlug}}",
+  "email": "{{testEmail}}",
+  "password": "{{testPassword}}"
+}
+
+###
+# Expected Response:
+# {
+#   "data": {
+#     "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+#     "user": {
+#       "id": "uuid",
+#       "email": "owner@test.com",
+#       "role": "OWNER",
+#       "restaurantId": "uuid",
+#       "restaurantSlug": "test-restaurant"
+#     }
+#   },
+#   "meta": {
+#     "requestId": "..."
+#   }
+# }
+# Set-Cookie: refreshToken=...; HttpOnly; Secure; SameSite=Strict
+
+###
+# 2. Get Current User (Me)
+# Replace YOUR_ACCESS_TOKEN with the accessToken from login response
+GET {{baseUrl}}/me
+Authorization: Bearer YOUR_ACCESS_TOKEN
+
+###
+# Expected Response:
+# {
+#   "data": {
+#     "id": "uuid",
+#     "email": "owner@test.com",
+#     "role": "OWNER",
+#     "restaurantId": "uuid",
+#     "restaurantSlug": "test-restaurant",
+#     "createdAt": "2024-01-01T00:00:00.000Z"
+#   },
+#   "meta": {
+#     "requestId": "..."
+#   }
+# }
+
+###
+# 3. Refresh Access Token
+# Note: This requires the refreshToken cookie from login
+# In REST clients, cookies are usually sent automatically
+POST {{baseUrl}}/refresh
+
+###
+# Expected Response:
+# {
+#   "data": {
+#     "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+#   },
+#   "meta": {
+#     "requestId": "..."
+#   }
+# }
+
+###
+# 4. Logout
+# Replace YOUR_ACCESS_TOKEN with the accessToken
+POST {{baseUrl}}/logout
+Authorization: Bearer YOUR_ACCESS_TOKEN
+
+###
+# Expected Response:
+# {
+#   "data": {
+#     "message": "Logged out successfully"
+#   },
+#   "meta": {
+#     "requestId": "..."
+#   }
+# }
+# Set-Cookie: refreshToken=; HttpOnly; Secure; SameSite=Strict; Expires=Thu, 01 Jan 1970 00:00:00 GMT
+
+###
+# 5. Login with Manager
+POST {{baseUrl}}/login
+Content-Type: application/json
+
+{
+  "slug": "test-restaurant",
+  "email": "manager@test.com",
+  "password": "Password123!"
+}
+
+###
+# 6. Login with Staff
+POST {{baseUrl}}/login
+Content-Type: application/json
+
+{
+  "slug": "test-restaurant",
+  "email": "staff@test.com",
+  "password": "Password123!"
+}
+
+###
+# 7. Login Failure - Invalid Credentials
+POST {{baseUrl}}/login
+Content-Type: application/json
+
+{
+  "slug": "test-restaurant",
+  "email": "wrong@test.com",
+  "password": "WrongPassword"
+}
+
+###
+# Expected Response: 401 Unauthorized
+# {
+#   "error": {
+#     "code": "UNAUTHORIZED",
+#     "message": "Invalid credentials",
+#     "requestId": "..."
+#   }
+# }
+
+###
+# 8. Login Failure - Restaurant Not Found
+POST {{baseUrl}}/login
+Content-Type: application/json
+
+{
+  "slug": "nonexistent-restaurant",
+  "email": "owner@test.com",
+  "password": "Password123!"
+}
+
+###
+# Expected Response: 404 Not Found
+# {
+#   "error": {
+#     "code": "NOT_FOUND",
+#     "message": "Restaurant not found",
+#     "requestId": "..."
+#   }
+# }
+
+###
+# 9. Get Me - No Authorization Header
+GET {{baseUrl}}/me
+
+###
+# Expected Response: 401 Unauthorized
+# {
+#   "error": {
+#     "code": "UNAUTHORIZED",
+#     "message": "Authorization header is required",
+#     "requestId": "..."
+#   }
+# }
+
+###
+# 10. Get Me - Invalid Token
+GET {{baseUrl}}/me
+Authorization: Bearer invalid.token.here
+
+###
+# Expected Response: 401 Unauthorized
+# {
+#   "error": {
+#     "code": "UNAUTHORIZED",
+#     "message": "Invalid token",
+#     "requestId": "..."
+#   }
+# }
+
+###
+# RBAC Testing with Menu Routes
+###
+
+###
+# 11. Create Menu Item (Owner - Should Succeed)
+POST http://localhost:3000/api/v1/admin/menu
+Content-Type: application/json
+Authorization: Bearer YOUR_OWNER_ACCESS_TOKEN
+
+{
+  "name": "Hawaiian Pizza",
+  "description": "Pizza with ham and pineapple",
+  "price": 15.99,
+  "categoryId": "test-category-id",
+  "isAvailable": true
+}
+
+###
+# 12. Create Menu Item (Staff - Should Fail with 403)
+POST http://localhost:3000/api/v1/admin/menu
+Content-Type: application/json
+Authorization: Bearer YOUR_STAFF_ACCESS_TOKEN
+
+{
+  "name": "Hawaiian Pizza",
+  "description": "Pizza with ham and pineapple",
+  "price": 15.99,
+  "categoryId": "test-category-id",
+  "isAvailable": true
+}
+
+###
+# Expected Response: 403 Forbidden
+# {
+#   "error": {
+#     "code": "FORBIDDEN",
+#     "message": "Access denied. Required role: OWNER, MANAGER. Your role: STAFF",
+#     "requestId": "..."
+#   }
+# }
+
+###
+# 13. List Menu Items (Staff - Should Succeed)
+GET http://localhost:3000/api/v1/admin/menu
+Authorization: Bearer YOUR_STAFF_ACCESS_TOKEN
+
+###
+# 14. Delete Menu Item (Manager - Should Fail with 403)
+DELETE http://localhost:3000/api/v1/admin/menu/test-item-1
+Authorization: Bearer YOUR_MANAGER_ACCESS_TOKEN
+
+###
+# Expected Response: 403 Forbidden (only OWNER can delete)
+
+###
+# 15. Delete Menu Item (Owner - Should Succeed)
+DELETE http://localhost:3000/api/v1/admin/menu/test-item-1
+Authorization: Bearer YOUR_OWNER_ACCESS_TOKEN

@@ -1,0 +1,307 @@
+###############################################################################
+# OBSERVABILITY & MONITORING TEST SUITE
+# Tests: Metrics, Logging, Health Checks, Audit Logs
+###############################################################################
+
+@baseUrl = http://localhost:3001
+@adminToken = {{login.response.body.$.accessToken}}
+@restaurantId = 
+@slug = test-restaurant
+
+###############################################################################
+# 1. HEALTH & READINESS CHECKS
+###############################################################################
+
+### 1.1 Health Check - Basic
+GET {{baseUrl}}/health
+
+### 1.2 Readiness Check - Database Connectivity
+GET {{baseUrl}}/ready
+
+###############################################################################
+# 2. PROMETHEUS METRICS
+###############################################################################
+
+### 2.1 Get Metrics - Initial State
+GET {{baseUrl}}/metrics
+
+### 2.2 Trigger Some Traffic - Login
+# @name login
+POST {{baseUrl}}/api/v1/auth/login
+Content-Type: application/json
+
+{
+  "email": "owner@test-restaurant.com",
+  "password": "password123"
+}
+
+### 2.3 Trigger Some Traffic - Get Menu (Admin)
+GET {{baseUrl}}/api/v1/admin/menu/categories
+Authorization: Bearer {{adminToken}}
+
+### 2.4 Trigger Some Traffic - Public Menu
+GET {{baseUrl}}/api/v1/public/restaurants/{{slug}}/menu
+
+### 2.5 Get Metrics - After Traffic
+# Should show http_requests_total incremented
+# Should show http_request_duration_seconds recorded
+GET {{baseUrl}}/metrics
+
+### 2.6 Trigger Validation Error
+POST {{baseUrl}}/api/v1/auth/login
+Content-Type: application/json
+
+{
+  "email": "invalid",
+  "password": ""
+}
+
+### 2.7 Trigger 404 Error
+GET {{baseUrl}}/api/v1/nonexistent
+
+### 2.8 Get Metrics - After Errors
+# Should show errors_total incremented
+GET {{baseUrl}}/metrics
+
+###############################################################################
+# 3. STRUCTURED LOGGING VALIDATION
+###############################################################################
+
+### 3.1 Request with Authentication
+# Should log: requestId, userId, restaurantId, route, duration, status
+GET {{baseUrl}}/api/v1/admin/menu/categories
+Authorization: Bearer {{adminToken}}
+
+### 3.2 Request without Authentication
+# Should log: requestId, route, duration, status (no userId)
+GET {{baseUrl}}/api/v1/public/restaurants/{{slug}}/menu
+
+### 3.3 Request with Error
+# Should log: requestId, route, error details, stack trace (non-prod only)
+POST {{baseUrl}}/api/v1/admin/menu/categories
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "name": ""
+}
+
+###############################################################################
+# 4. REQUEST TIMING HEADERS
+###############################################################################
+
+### 4.1 Check Response Time Header
+# Should include X-Response-Time header
+GET {{baseUrl}}/api/v1/public/restaurants/{{slug}}/menu
+
+### 4.2 Check Request ID Header
+# Should include X-Request-Id header
+GET {{baseUrl}}/health
+
+###############################################################################
+# 5. METRIC LABELS VALIDATION
+###############################################################################
+
+### 5.1 Generate Traffic with Different Methods
+GET {{baseUrl}}/api/v1/public/restaurants/{{slug}}/menu
+
+### 5.2 POST Request
+POST {{baseUrl}}/api/v1/auth/login
+Content-Type: application/json
+
+{
+  "email": "test@example.com",
+  "password": "test123"
+}
+
+### 5.3 PUT Request (requires auth token)
+# @name updateCategory
+PUT {{baseUrl}}/api/v1/admin/menu/categories/some-id
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "name": "Updated Category"
+}
+
+### 5.4 Check Metrics - Method Labels
+# Should show http_requests_total with different method labels (GET, POST, PUT)
+GET {{baseUrl}}/metrics
+
+###############################################################################
+# 6. HIGH CARDINALITY PREVENTION
+###############################################################################
+
+### 6.1 Request with UUID in Path
+GET {{baseUrl}}/api/v1/public/restaurants/550e8400-e29b-41d4-a716-446655440000/menu
+
+### 6.2 Request with Numeric ID
+GET {{baseUrl}}/api/v1/admin/menu/categories/12345
+Authorization: Bearer {{adminToken}}
+
+### 6.3 Request with Different Slug
+GET {{baseUrl}}/api/v1/public/restaurants/another-restaurant/menu
+
+### 6.4 Check Metrics - Route Sanitization
+# Routes should be sanitized: /api/v1/public/restaurants/:slug/menu
+# UUIDs and numeric IDs should be replaced with :id
+GET {{baseUrl}}/metrics
+
+###############################################################################
+# 7. DEFAULT METRICS (System)
+###############################################################################
+
+### 7.1 Check System Metrics
+# Should include:
+# - restaurant_api_process_cpu_user_seconds_total
+# - restaurant_api_process_resident_memory_bytes
+# - restaurant_api_nodejs_eventloop_lag_seconds
+# - restaurant_api_nodejs_heap_size_total_bytes
+# - restaurant_api_nodejs_heap_size_used_bytes
+GET {{baseUrl}}/metrics
+
+###############################################################################
+# 8. ERROR TYPES TRACKING
+###############################################################################
+
+### 8.1 Validation Error (ZodError)
+POST {{baseUrl}}/api/v1/auth/login
+Content-Type: application/json
+
+{
+  "email": "not-an-email",
+  "password": ""
+}
+
+### 8.2 Authentication Error (JWT)
+GET {{baseUrl}}/api/v1/admin/menu/categories
+Authorization: Bearer invalid-token
+
+### 8.3 Not Found Error
+GET {{baseUrl}}/api/v1/admin/menu/categories/non-existent-id
+Authorization: Bearer {{adminToken}}
+
+### 8.4 Check Error Metrics
+# Should show errors_total with different error types
+GET {{baseUrl}}/metrics
+
+###############################################################################
+# 9. CONCURRENT REQUESTS (Load Simulation)
+###############################################################################
+
+### 9.1 Send Multiple Concurrent Requests
+# Run this multiple times to simulate load
+GET {{baseUrl}}/api/v1/public/restaurants/{{slug}}/menu
+
+### 9.2 Check Histogram Buckets
+# Should show http_request_duration_seconds histogram with multiple buckets
+# Buckets: 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10
+GET {{baseUrl}}/metrics
+
+###############################################################################
+# 10. AUDIT LOGS (Future - After Implementation)
+###############################################################################
+
+### 10.1 Create Menu Category (Should be Audited)
+# @name createCategory
+POST {{baseUrl}}/api/v1/admin/menu/categories
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "name": "Test Category",
+  "description": "For audit testing",
+  "displayOrder": 1
+}
+
+### 10.2 Update Menu Category (Should be Audited)
+PUT {{baseUrl}}/api/v1/admin/menu/categories/{{createCategory.response.body.$.data.id}}
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "name": "Updated Test Category",
+  "description": "Updated for audit testing"
+}
+
+### 10.3 Delete Menu Category (Should be Audited)
+DELETE {{baseUrl}}/api/v1/admin/menu/categories/{{createCategory.response.body.$.data.id}}
+Authorization: Bearer {{adminToken}}
+
+### 10.4 Query Audit Logs (Future Endpoint)
+# GET {{baseUrl}}/api/v1/admin/audit-logs?resourceType=MENU_CATEGORY
+# Authorization: Bearer {{adminToken}}
+
+###############################################################################
+# 11. PERFORMANCE BENCHMARKING
+###############################################################################
+
+### 11.1 Fast Endpoint - Health Check
+# Target: < 5ms
+GET {{baseUrl}}/health
+
+### 11.2 Database Query - Menu List
+# Target: < 100ms
+GET {{baseUrl}}/api/v1/public/restaurants/{{slug}}/menu
+
+### 11.3 Complex Operation - Login (hashing)
+# Target: < 200ms
+POST {{baseUrl}}/api/v1/auth/login
+Content-Type: application/json
+
+{
+  "email": "owner@test-restaurant.com",
+  "password": "password123"
+}
+
+### 11.4 Check Duration Histogram
+# Verify requests fall into expected buckets
+GET {{baseUrl}}/metrics
+
+###############################################################################
+# 12. EDGE CASES
+###############################################################################
+
+### 12.1 Request with No Restaurant Context
+GET {{baseUrl}}/api/v1/admin/menu/categories
+Authorization: Bearer {{adminToken}}
+# restaurantId label should be 'none' if not set
+
+### 12.2 Metrics Endpoint Itself
+# Should not recursively increment metrics
+GET {{baseUrl}}/metrics
+
+### 12.3 Request with Very Long Path
+GET {{baseUrl}}/api/v1/public/restaurants/this-is-a-very-long-slug-name-that-should-still-be-handled-correctly/menu
+
+### 12.4 Check Metrics After Edge Cases
+GET {{baseUrl}}/metrics
+
+###############################################################################
+# NOTES
+###############################################################################
+
+# Metrics Format:
+# - Counter: http_requests_total{method="GET",route="/health",status="200",restaurant_id="none"}
+# - Histogram: http_request_duration_seconds_bucket{method="GET",route="/health",status="200",restaurant_id="none",le="0.005"}
+# 
+# Log Fields (Check server logs):
+# - requestId: UUID
+# - restaurantId: UUID or null
+# - userId: UUID or null
+# - userRole: OWNER/MANAGER/STAFF or null
+# - route: Request path
+# - duration_ms: Request duration
+# - status: HTTP status code
+# - error: Error details (if any)
+# - stack: Stack trace (non-production only)
+#
+# Default Metrics (Prometheus):
+# - restaurant_api_process_cpu_*
+# - restaurant_api_process_resident_memory_bytes
+# - restaurant_api_nodejs_*
+# - restaurant_api_nodejs_heap_*
+# - restaurant_api_nodejs_eventloop_lag_*
+#
+# Histogram Buckets (seconds):
+# 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, +Inf

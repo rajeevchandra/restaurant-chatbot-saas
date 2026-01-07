@@ -1,0 +1,279 @@
+### Menu Module API Tests
+### Run these after starting the API server: npm run dev
+
+@baseUrl = http://localhost:3000/api/v1
+@accessToken = {{login.response.body.data.accessToken}}
+
+# ========================================
+# 1. LOGIN AS OWNER
+# ========================================
+
+### Login as owner to get access token
+# @name login
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "slug": "test-restaurant",
+  "email": "owner@test.com",
+  "password": "Password123!"
+}
+
+# ========================================
+# 2. CATEGORIES - CRUD
+# ========================================
+
+### List all categories (should show "Main Dishes" from seed)
+GET {{baseUrl}}/admin/menu/categories
+Authorization: Bearer {{accessToken}}
+
+### Get single category (replace with actual ID from list above)
+@categoryId = replace-with-actual-category-id
+GET {{baseUrl}}/admin/menu/categories/{{categoryId}}
+Authorization: Bearer {{accessToken}}
+
+### Create new category
+# @name createCategory
+POST {{baseUrl}}/admin/menu/categories
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "name": "Appetizers",
+  "description": "Starters and small plates",
+  "displayOrder": 0,
+  "isActive": true
+}
+
+### Create another category
+POST {{baseUrl}}/admin/menu/categories
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "name": "Desserts",
+  "description": "Sweet treats and cakes",
+  "displayOrder": 2,
+  "isActive": true
+}
+
+### Update category
+PUT {{baseUrl}}/admin/menu/categories/{{categoryId}}
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "description": "Updated description",
+  "displayOrder": 1
+}
+
+### Try to delete category with items (should fail)
+DELETE {{baseUrl}}/admin/menu/categories/{{categoryId}}
+Authorization: Bearer {{accessToken}}
+
+# ========================================
+# 3. MENU ITEMS - CRUD
+# ========================================
+
+### List all menu items (should show 2 pizzas from seed)
+GET {{baseUrl}}/admin/menu/items
+Authorization: Bearer {{accessToken}}
+
+### List items with pagination
+GET {{baseUrl}}/admin/menu/items?page=1&pageSize=10
+Authorization: Bearer {{accessToken}}
+
+### Filter items by category
+GET {{baseUrl}}/admin/menu/items?categoryId={{categoryId}}
+Authorization: Bearer {{accessToken}}
+
+### Filter items by availability
+GET {{baseUrl}}/admin/menu/items?isAvailable=true
+Authorization: Bearer {{accessToken}}
+
+### Get single menu item (replace with actual ID)
+@itemId = replace-with-actual-item-id
+GET {{baseUrl}}/admin/menu/items/{{itemId}}
+Authorization: Bearer {{accessToken}}
+
+### Create menu item in Appetizers category
+# @name createItem
+POST {{baseUrl}}/admin/menu/items
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "categoryId": "{{createCategory.response.body.data.id}}",
+  "name": "Garlic Bread",
+  "description": "Toasted bread with garlic butter and herbs",
+  "price": 5.99,
+  "imageUrl": "https://example.com/garlic-bread.jpg",
+  "isAvailable": true,
+  "displayOrder": 0
+}
+
+### Create another menu item
+POST {{baseUrl}}/admin/menu/items
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "categoryId": "{{createCategory.response.body.data.id}}",
+  "name": "Bruschetta",
+  "description": "Grilled bread with tomatoes, basil, and olive oil",
+  "price": 7.99,
+  "isAvailable": true,
+  "displayOrder": 1
+}
+
+### Update menu item
+PUT {{baseUrl}}/admin/menu/items/{{itemId}}
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "name": "Garlic Bread (Updated)",
+  "price": 6.49,
+  "description": "Fresh baked garlic bread with herbs"
+}
+
+### Delete menu item (soft delete)
+DELETE {{baseUrl}}/admin/menu/items/{{itemId}}
+Authorization: Bearer {{accessToken}}
+
+# ========================================
+# 4. VALIDATION TESTS
+# ========================================
+
+### Negative price (should fail)
+POST {{baseUrl}}/admin/menu/items
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "categoryId": "{{createCategory.response.body.data.id}}",
+  "name": "Invalid Item",
+  "price": -5.00
+}
+
+### Missing required fields (should fail)
+POST {{baseUrl}}/admin/menu/items
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "name": "Invalid Item"
+}
+
+### Invalid UUID (should fail)
+GET {{baseUrl}}/admin/menu/items/not-a-uuid
+Authorization: Bearer {{accessToken}}
+
+### Duplicate category name (should fail)
+POST {{baseUrl}}/admin/menu/categories
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "name": "Appetizers"
+}
+
+# ========================================
+# 5. PUBLIC MENU ACCESS
+# ========================================
+
+### Get public menu (NO AUTH REQUIRED)
+GET {{baseUrl}}/public/restaurants/test-restaurant/menu
+
+### Should return full menu with:
+# - Restaurant info (id, name, slug)
+# - Active categories only
+# - Active items only with soldOut status
+# - Active options and values
+# - Sorted by displayOrder
+
+# ========================================
+# 6. RBAC TESTS
+# ========================================
+
+### Login as manager
+# @name loginManager
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "slug": "test-restaurant",
+  "email": "manager@test.com",
+  "password": "Password123!"
+}
+
+@managerToken = {{loginManager.response.body.data.accessToken}}
+
+### Manager can create category (OWNER, MANAGER allowed)
+POST {{baseUrl}}/admin/menu/categories
+Authorization: Bearer {{managerToken}}
+Content-Type: application/json
+
+{
+  "name": "Beverages",
+  "description": "Drinks and refreshments"
+}
+
+### Manager CANNOT delete category (OWNER only)
+DELETE {{baseUrl}}/admin/menu/categories/{{categoryId}}
+Authorization: Bearer {{managerToken}}
+
+### Login as staff
+# @name loginStaff
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "slug": "test-restaurant",
+  "email": "staff@test.com",
+  "password": "Password123!"
+}
+
+@staffToken = {{loginStaff.response.body.data.accessToken}}
+
+### Staff can LIST (no role restriction)
+GET {{baseUrl}}/admin/menu/categories
+Authorization: Bearer {{staffToken}}
+
+### Staff CANNOT create category (requires OWNER or MANAGER)
+POST {{baseUrl}}/admin/menu/categories
+Authorization: Bearer {{staffToken}}
+Content-Type: application/json
+
+{
+  "name": "Should Fail",
+  "description": "Staff not allowed to create"
+}
+
+# ========================================
+# 7. EDGE CASES
+# ========================================
+
+### Large page size (should be capped at 100)
+GET {{baseUrl}}/admin/menu/items?pageSize=999
+Authorization: Bearer {{accessToken}}
+
+### Invalid page number (should default to 1)
+GET {{baseUrl}}/admin/menu/items?page=0
+Authorization: Bearer {{accessToken}}
+
+### Invalid category filter (should return validation error)
+GET {{baseUrl}}/admin/menu/items?categoryId=not-a-uuid
+Authorization: Bearer {{accessToken}}
+
+### Non-existent restaurant slug (public menu)
+GET {{baseUrl}}/public/restaurants/nonexistent-slug/menu
+
+### Update non-existent item (should return 404)
+PUT {{baseUrl}}/admin/menu/items/00000000-0000-0000-0000-000000000000
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "name": "Should Not Work"
+}

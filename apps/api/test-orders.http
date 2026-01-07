@@ -1,0 +1,410 @@
+### Orders Module API Tests
+
+@baseUrl = http://localhost:3000/api/v1
+@accessToken = {{login.response.body.data.accessToken}}
+@slug = test-restaurant
+
+# ========================================
+# 1. LOGIN AS OWNER
+# ========================================
+
+### Login as owner
+# @name login
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "slug": "{{slug}}",
+  "email": "owner@test.com",
+  "password": "Password123!"
+}
+
+# ========================================
+# 2. GET MENU ITEMS (for order creation)
+# ========================================
+
+### Get menu to find item IDs
+GET {{baseUrl}}/public/restaurants/{{slug}}/menu
+
+# ========================================
+# 3. CREATE ORDER (Public - No Auth)
+# ========================================
+
+### Create order with idempotency key
+# @name createOrder
+POST {{baseUrl}}/public/restaurants/{{slug}}/orders
+Content-Type: application/json
+Idempotency-Key: {{$guid}}
+
+{
+  "customerName": "John Doe",
+  "customerEmail": "john@example.com",
+  "customerPhone": "+1234567890",
+  "items": [
+    {
+      "menuItemId": "REPLACE-WITH-ACTUAL-ITEM-ID",
+      "quantity": 2
+    }
+  ],
+  "notes": "Please make it spicy"
+}
+
+### Create order without idempotency (will create duplicate)
+POST {{baseUrl}}/public/restaurants/{{slug}}/orders
+Content-Type: application/json
+
+{
+  "customerName": "Jane Smith",
+  "customerEmail": "jane@example.com",
+  "items": [
+    {
+      "menuItemId": "REPLACE-WITH-ACTUAL-ITEM-ID",
+      "quantity": 1
+    }
+  ]
+}
+
+### Try to create order with same idempotency key (should return existing)
+POST {{baseUrl}}/public/restaurants/{{slug}}/orders
+Content-Type: application/json
+Idempotency-Key: test-key-123
+
+{
+  "customerName": "Duplicate Test",
+  "items": [
+    {
+      "menuItemId": "REPLACE-WITH-ACTUAL-ITEM-ID",
+      "quantity": 1
+    }
+  ]
+}
+
+# ========================================
+# 4. GET ORDER (Public)
+# ========================================
+
+### Get order by ID (public)
+@orderId = {{createOrder.response.body.data.id}}
+GET {{baseUrl}}/public/restaurants/{{slug}}/orders/{{orderId}}
+
+# ========================================
+# 5. CANCEL ORDER (Customer)
+# ========================================
+
+### Cancel order as customer
+POST {{baseUrl}}/public/restaurants/{{slug}}/orders/{{orderId}}/cancel
+Content-Type: application/json
+
+{
+  "reason": "Changed my mind"
+}
+
+### Try to cancel already cancelled order (should fail)
+POST {{baseUrl}}/public/restaurants/{{slug}}/orders/{{orderId}}/cancel
+Content-Type: application/json
+
+{
+  "reason": "Try again"
+}
+
+# ========================================
+# 6. ADMIN - LIST ORDERS
+# ========================================
+
+### List all orders
+GET {{baseUrl}}/admin/orders
+Authorization: Bearer {{accessToken}}
+
+### Filter by status
+GET {{baseUrl}}/admin/orders?status=CREATED
+Authorization: Bearer {{accessToken}}
+
+### Search by customer
+GET {{baseUrl}}/admin/orders?q=John
+Authorization: Bearer {{accessToken}}
+
+### Filter by date range
+GET {{baseUrl}}/admin/orders?dateFrom=2026-01-01&dateTo=2026-12-31
+Authorization: Bearer {{accessToken}}
+
+### Pagination
+GET {{baseUrl}}/admin/orders?page=1&pageSize=10
+Authorization: Bearer {{accessToken}}
+
+# ========================================
+# 7. ADMIN - GET ORDER
+# ========================================
+
+### Get order by ID (admin)
+GET {{baseUrl}}/admin/orders/{{orderId}}
+Authorization: Bearer {{accessToken}}
+
+# ========================================
+# 8. ADMIN - UPDATE ORDER STATUS
+# ========================================
+
+### Update to PAYMENT_PENDING
+PUT {{baseUrl}}/admin/orders/{{orderId}}/status
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "status": "PAYMENT_PENDING",
+  "notes": "Awaiting payment confirmation"
+}
+
+### Update to PAID
+PUT {{baseUrl}}/admin/orders/{{orderId}}/status
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "status": "PAID"
+}
+
+### Update to ACCEPTED
+PUT {{baseUrl}}/admin/orders/{{orderId}}/status
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "status": "ACCEPTED"
+}
+
+### Update to PREPARING
+PUT {{baseUrl}}/admin/orders/{{orderId}}/status
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "status": "PREPARING"
+}
+
+### Update to READY
+PUT {{baseUrl}}/admin/orders/{{orderId}}/status
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "status": "READY"
+}
+
+### Update to COMPLETED
+PUT {{baseUrl}}/admin/orders/{{orderId}}/status
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "status": "COMPLETED"
+}
+
+### Try invalid transition (should fail)
+PUT {{baseUrl}}/admin/orders/{{orderId}}/status
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "status": "CREATED"
+}
+
+# ========================================
+# 9. ADMIN - CANCEL ORDER
+# ========================================
+
+### Cancel order as staff
+POST {{baseUrl}}/admin/orders/{{orderId}}/cancel
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "reason": "Customer requested refund"
+}
+
+# ========================================
+# 10. VALIDATION TESTS
+# ========================================
+
+### Missing required fields
+POST {{baseUrl}}/public/restaurants/{{slug}}/orders
+Content-Type: application/json
+
+{
+  "customerName": "Test"
+}
+
+### Invalid menu item ID
+POST {{baseUrl}}/public/restaurants/{{slug}}/orders
+Content-Type: application/json
+
+{
+  "items": [
+    {
+      "menuItemId": "invalid-uuid",
+      "quantity": 1
+    }
+  ]
+}
+
+### Invalid quantity
+POST {{baseUrl}}/public/restaurants/{{slug}}/orders
+Content-Type: application/json
+
+{
+  "items": [
+    {
+      "menuItemId": "REPLACE-WITH-ACTUAL-ITEM-ID",
+      "quantity": 0
+    }
+  ]
+}
+
+### Too many items
+POST {{baseUrl}}/public/restaurants/{{slug}}/orders
+Content-Type: application/json
+
+{
+  "items": [
+    ...Array(51).fill({
+      "menuItemId": "REPLACE-WITH-ACTUAL-ITEM-ID",
+      "quantity": 1
+    })
+  ]
+}
+
+# ========================================
+# 11. RBAC TESTS
+# ========================================
+
+### Login as manager
+# @name loginManager
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "slug": "{{slug}}",
+  "email": "manager@test.com",
+  "password": "Password123!"
+}
+
+@managerToken = {{loginManager.response.body.data.accessToken}}
+
+### Manager can update order status
+PUT {{baseUrl}}/admin/orders/{{orderId}}/status
+Authorization: Bearer {{managerToken}}
+Content-Type: application/json
+
+{
+  "status": "ACCEPTED"
+}
+
+### Login as staff
+# @name loginStaff
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "slug": "{{slug}}",
+  "email": "staff@test.com",
+  "password": "Password123!"
+}
+
+@staffToken = {{loginStaff.response.body.data.accessToken}}
+
+### Staff can update order status
+PUT {{baseUrl}}/admin/orders/{{orderId}}/status
+Authorization: Bearer {{staffToken}}
+Content-Type: application/json
+
+{
+  "status": "PREPARING"
+}
+
+### Staff CANNOT cancel order (requires OWNER/MANAGER)
+POST {{baseUrl}}/admin/orders/{{orderId}}/cancel
+Authorization: Bearer {{staffToken}}
+Content-Type: application/json
+
+{
+  "reason": "Should fail"
+}
+
+# ========================================
+# 12. STATE MACHINE TESTS
+# ========================================
+
+### Create new order for state machine testing
+# @name newOrder
+POST {{baseUrl}}/public/restaurants/{{slug}}/orders
+Content-Type: application/json
+Idempotency-Key: {{$guid}}
+
+{
+  "customerName": "State Machine Test",
+  "items": [
+    {
+      "menuItemId": "REPLACE-WITH-ACTUAL-ITEM-ID",
+      "quantity": 1
+    }
+  ]
+}
+
+@testOrderId = {{newOrder.response.body.data.id}}
+
+### Try to skip steps (CREATED -> ACCEPTED should fail)
+PUT {{baseUrl}}/admin/orders/{{testOrderId}}/status
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "status": "ACCEPTED"
+}
+
+### Valid progression: CREATED -> PAYMENT_PENDING
+PUT {{baseUrl}}/admin/orders/{{testOrderId}}/status
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "status": "PAYMENT_PENDING"
+}
+
+### Customer can cancel in PAYMENT_PENDING
+POST {{baseUrl}}/public/restaurants/{{slug}}/orders/{{testOrderId}}/cancel
+Content-Type: application/json
+
+{
+  "reason": "Customer cancellation test"
+}
+
+### Cannot transition from CANCELLED
+PUT {{baseUrl}}/admin/orders/{{testOrderId}}/status
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "status": "PAID"
+}
+
+# ========================================
+# 13. EDGE CASES
+# ========================================
+
+### Order for non-existent restaurant
+POST {{baseUrl}}/public/restaurants/nonexistent-slug/orders
+Content-Type: application/json
+
+{
+  "customerName": "Test",
+  "items": [
+    {
+      "menuItemId": "REPLACE-WITH-ACTUAL-ITEM-ID",
+      "quantity": 1
+    }
+  ]
+}
+
+### Get non-existent order
+GET {{baseUrl}}/public/restaurants/{{slug}}/orders/00000000-0000-0000-0000-000000000000
+
+### Try to cancel completed order
+# (First create and complete an order, then try to cancel)

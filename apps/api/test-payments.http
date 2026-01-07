@@ -1,0 +1,693 @@
+### ============================================
+### Restaurant SaaS - Payments Module Test Suite
+### ============================================
+### Tests payment configuration, checkout sessions, and webhooks
+### Covers: Admin config, public payment intents, webhook processing
+
+@baseUrl = http://localhost:3000
+@slug = test-restaurant
+@accessToken = {{login.response.body.data.accessToken}}
+@orderId = {{createOrder.response.body.data.id}}
+@paymentId = {{createPayment.response.body.data.id}}
+
+### ============================================
+### 1. AUTHENTICATION
+### ============================================
+
+### 1.1 Login as OWNER
+POST {{baseUrl}}/api/v1/auth/login
+Content-Type: application/json
+
+{
+  "slug": "{{slug}}",
+  "email": "owner@test.com",
+  "password": "Password123!"
+}
+
+### ============================================
+### 2. SETUP - Create Order for Payment Testing
+### ============================================
+
+### 2.1 Get Menu to Find Item ID
+GET {{baseUrl}}/api/v1/public/restaurants/{{slug}}/menu
+
+### 2.2 Create Order (CREATED status)
+# @name createOrder
+POST {{baseUrl}}/api/v1/public/restaurants/{{slug}}/orders
+Content-Type: application/json
+Idempotency-Key: {{$guid}}
+
+{
+  "customerName": "Jane Smith",
+  "customerEmail": "jane@test.com",
+  "customerPhone": "+1234567890",
+  "items": [
+    {
+      "menuItemId": "28215316-fef5-4a53-93c1-53f17fda76b6",
+      "quantity": 1
+    }
+  ],
+  "notes": "Payment test order"
+}
+
+### ============================================
+### 3. PAYMENT CONFIG MANAGEMENT (OWNER only)
+### ============================================
+
+### 3.1 Get Current Payment Config (before setup)
+GET {{baseUrl}}/api/v1/admin/payments/config
+Authorization: Bearer {{accessToken}}
+
+### 3.2 Test Stripe Connection (without saving)
+POST {{baseUrl}}/api/v1/admin/payments/test
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "provider": "STRIPE",
+  "credentials": {
+    "secretKey": "sk_test_51234567890abcdef",
+    "publicKey": "pk_test_51234567890abcdef",
+    "webhookSecret": "whsec_1234567890abcdef"
+  }
+}
+
+### 3.3 Update Payment Config - Stripe (encrypted storage)
+PUT {{baseUrl}}/api/v1/admin/payments/config
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "provider": "STRIPE",
+  "credentials": {
+    "secretKey": "sk_test_51234567890abcdef",
+    "publicKey": "pk_test_51234567890abcdef",
+    "webhookSecret": "whsec_1234567890abcdef"
+  },
+  "isActive": true,
+  "metadata": {
+    "testMode": true,
+    "configuredBy": "owner@test.com"
+  }
+}
+
+### 3.4 Get Payment Config (after setup - credentials should be redacted)
+GET {{baseUrl}}/api/v1/admin/payments/config
+Authorization: Bearer {{accessToken}}
+
+### 3.5 Update Payment Config - Square
+PUT {{baseUrl}}/api/v1/admin/payments/config
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "provider": "SQUARE",
+  "credentials": {
+    "accessToken": "sandbox-sq0atb-1234567890abcdef",
+    "locationId": "LOC123456",
+    "webhookSecret": "webhook_secret_key_123"
+  },
+  "isActive": true
+}
+
+### 3.6 Test Square Connection
+POST {{baseUrl}}/api/v1/admin/payments/test
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "provider": "SQUARE",
+  "credentials": {
+    "accessToken": "sandbox-sq0atb-1234567890abcdef",
+    "locationId": "LOC123456"
+  }
+}
+
+### ============================================
+### 4. PUBLIC PAYMENT INTENT CREATION
+### ============================================
+
+### 4.1 Create Payment Intent for Order
+# @name createPayment
+POST {{baseUrl}}/api/v1/public/restaurants/{{slug}}/orders/{{orderId}}/pay
+Content-Type: application/json
+
+{
+  "successUrl": "https://example.com/order/success",
+  "cancelUrl": "https://example.com/order/cancel"
+}
+
+### 4.2 Verify Order Status Changed to PAYMENT_PENDING
+GET {{baseUrl}}/api/v1/public/restaurants/{{slug}}/orders/{{orderId}}
+
+### 4.3 Get Payment Details
+GET {{baseUrl}}/api/v1/admin/orders/{{orderId}}
+Authorization: Bearer {{accessToken}}
+
+### ============================================
+### 5. STRIPE WEBHOOK SIMULATION
+### ============================================
+
+### 5.1 Simulate Stripe - Checkout Session Completed
+POST {{baseUrl}}/api/v1/webhooks/stripe
+Content-Type: application/json
+Stripe-Signature: test_signature_12345
+
+{
+  "id": "evt_test_webhook_{{$randomInt}}",
+  "object": "event",
+  "type": "checkout.session.completed",
+  "created": 1704672000,
+  "data": {
+    "object": {
+      "id": "cs_test_{{$randomInt}}",
+      "object": "checkout.session",
+      "amount_total": 1318,
+      "currency": "usd",
+      "customer_email": "jane@test.com",
+      "metadata": {
+        "orderId": "{{orderId}}",
+        "restaurantId": "test-restaurant-id"
+      },
+      "payment_status": "paid"
+    }
+  }
+}
+
+### 5.2 Simulate Stripe - Charge Succeeded
+POST {{baseUrl}}/api/v1/webhooks/stripe
+Content-Type: application/json
+Stripe-Signature: test_signature_12346
+
+{
+  "id": "evt_charge_{{$randomInt}}",
+  "object": "event",
+  "type": "charge.succeeded",
+  "created": 1704672000,
+  "data": {
+    "object": {
+      "id": "ch_test_{{$randomInt}}",
+      "object": "charge",
+      "amount": 1318,
+      "currency": "usd",
+      "metadata": {
+        "orderId": "{{orderId}}",
+        "restaurantId": "test-restaurant-id"
+      },
+      "status": "succeeded"
+    }
+  }
+}
+
+### 5.3 Simulate Stripe - Charge Failed
+POST {{baseUrl}}/api/v1/webhooks/stripe
+Content-Type: application/json
+Stripe-Signature: test_signature_12347
+
+{
+  "id": "evt_charge_failed_{{$randomInt}}",
+  "object": "event",
+  "type": "charge.failed",
+  "created": 1704672000,
+  "data": {
+    "object": {
+      "id": "ch_test_failed_{{$randomInt}}",
+      "object": "charge",
+      "amount": 1318,
+      "currency": "usd",
+      "metadata": {
+        "orderId": "{{orderId}}",
+        "restaurantId": "test-restaurant-id"
+      },
+      "status": "failed"
+    }
+  }
+}
+
+### 5.4 Simulate Stripe - Refund
+POST {{baseUrl}}/api/v1/webhooks/stripe
+Content-Type: application/json
+Stripe-Signature: test_signature_12348
+
+{
+  "id": "evt_refund_{{$randomInt}}",
+  "object": "event",
+  "type": "charge.refunded",
+  "created": 1704672000,
+  "data": {
+    "object": {
+      "id": "ch_test_refunded_{{$randomInt}}",
+      "object": "charge",
+      "amount": 1318,
+      "currency": "usd",
+      "refunded": true,
+      "metadata": {
+        "orderId": "{{orderId}}",
+        "restaurantId": "test-restaurant-id"
+      }
+    }
+  }
+}
+
+### ============================================
+### 6. SQUARE WEBHOOK SIMULATION
+### ============================================
+
+### 6.1 Simulate Square - Payment Created
+POST {{baseUrl}}/api/v1/webhooks/square
+Content-Type: application/json
+X-Square-Signature: test_square_signature_123
+
+{
+  "merchant_id": "test_merchant",
+  "type": "payment.created",
+  "event_id": "sq_evt_{{$randomInt}}",
+  "created_at": "2026-01-07T12:00:00Z",
+  "data": {
+    "type": "payment",
+    "id": "sq_payment_{{$randomInt}}",
+    "object": {
+      "payment": {
+        "id": "sq_payment_{{$randomInt}}",
+        "status": "COMPLETED",
+        "order_id": "{{orderId}}",
+        "amount_money": {
+          "amount": 1318,
+          "currency": "USD"
+        },
+        "location_id": "LOC123456"
+      }
+    }
+  }
+}
+
+### 6.2 Simulate Square - Payment Updated (Completed)
+POST {{baseUrl}}/api/v1/webhooks/square
+Content-Type: application/json
+X-Square-Signature: test_square_signature_124
+
+{
+  "merchant_id": "test_merchant",
+  "type": "payment.updated",
+  "event_id": "sq_evt_updated_{{$randomInt}}",
+  "created_at": "2026-01-07T12:01:00Z",
+  "data": {
+    "type": "payment",
+    "id": "sq_payment_updated_{{$randomInt}}",
+    "object": {
+      "payment": {
+        "id": "sq_payment_{{$randomInt}}",
+        "status": "COMPLETED",
+        "order_id": "{{orderId}}",
+        "amount_money": {
+          "amount": 1318,
+          "currency": "USD"
+        }
+      }
+    }
+  }
+}
+
+### 6.3 Simulate Square - Refund Created
+POST {{baseUrl}}/api/v1/webhooks/square
+Content-Type: application/json
+X-Square-Signature: test_square_signature_125
+
+{
+  "merchant_id": "test_merchant",
+  "type": "refund.created",
+  "event_id": "sq_evt_refund_{{$randomInt}}",
+  "created_at": "2026-01-07T12:02:00Z",
+  "data": {
+    "type": "refund",
+    "id": "sq_refund_{{$randomInt}}",
+    "object": {
+      "refund": {
+        "id": "sq_refund_{{$randomInt}}",
+        "payment_id": "sq_payment_{{$randomInt}}",
+        "status": "COMPLETED",
+        "amount_money": {
+          "amount": 1318,
+          "currency": "USD"
+        }
+      }
+    }
+  }
+}
+
+### ============================================
+### 7. WEBHOOK IDEMPOTENCY TESTING
+### ============================================
+
+### 7.1 Send Same Webhook Event Twice (should be idempotent)
+POST {{baseUrl}}/api/v1/webhooks/stripe
+Content-Type: application/json
+Stripe-Signature: test_signature_idempotency
+
+{
+  "id": "evt_idempotency_test_12345",
+  "object": "event",
+  "type": "checkout.session.completed",
+  "created": 1704672000,
+  "data": {
+    "object": {
+      "id": "cs_test_idempotency",
+      "object": "checkout.session",
+      "amount_total": 1318,
+      "currency": "usd",
+      "metadata": {
+        "orderId": "{{orderId}}",
+        "restaurantId": "test-restaurant-id"
+      },
+      "payment_status": "paid"
+    }
+  }
+}
+
+### 7.2 Send Same Webhook Again (should be ignored)
+POST {{baseUrl}}/api/v1/webhooks/stripe
+Content-Type: application/json
+Stripe-Signature: test_signature_idempotency
+
+{
+  "id": "evt_idempotency_test_12345",
+  "object": "event",
+  "type": "checkout.session.completed",
+  "created": 1704672000,
+  "data": {
+    "object": {
+      "id": "cs_test_idempotency",
+      "object": "checkout.session",
+      "amount_total": 1318,
+      "currency": "usd",
+      "metadata": {
+        "orderId": "{{orderId}}",
+        "restaurantId": "test-restaurant-id"
+      },
+      "payment_status": "paid"
+    }
+  }
+}
+
+### ============================================
+### 8. VALIDATION TESTS
+### ============================================
+
+### 8.1 Try to Pay Already Paid Order (should fail)
+POST {{baseUrl}}/api/v1/public/restaurants/{{slug}}/orders/{{orderId}}/pay
+Content-Type: application/json
+
+{
+  "successUrl": "https://example.com/success",
+  "cancelUrl": "https://example.com/cancel"
+}
+
+### 8.2 Try to Update Config as MANAGER (should fail - OWNER only)
+# First login as MANAGER
+POST {{baseUrl}}/api/v1/auth/login
+Content-Type: application/json
+
+{
+  "slug": "{{slug}}",
+  "email": "manager@test.com",
+  "password": "Password123!"
+}
+
+### 8.3 Manager Try to Update Config (should be forbidden)
+PUT {{baseUrl}}/api/v1/admin/payments/config
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "provider": "STRIPE",
+  "credentials": {
+    "secretKey": "sk_test_unauthorized",
+    "publicKey": "pk_test_unauthorized"
+  }
+}
+
+### 8.4 Invalid Provider Type (should fail validation)
+PUT {{baseUrl}}/api/v1/admin/payments/config
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "provider": "PAYPAL",
+  "credentials": {
+    "apiKey": "invalid"
+  }
+}
+
+### 8.5 Invalid Stripe Key Format (should fail validation)
+PUT {{baseUrl}}/api/v1/admin/payments/config
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "provider": "STRIPE",
+  "credentials": {
+    "secretKey": "invalid_key_format",
+    "publicKey": "also_invalid"
+  }
+}
+
+### 8.6 Missing Required Credentials (should fail validation)
+PUT {{baseUrl}}/api/v1/admin/payments/config
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "provider": "STRIPE",
+  "credentials": {
+    "publicKey": "pk_test_only"
+  }
+}
+
+### 8.7 Try Payment with No Config (should fail)
+# Note: Run this test on a fresh restaurant with no payment config
+POST {{baseUrl}}/api/v1/public/restaurants/new-restaurant/orders/some-order-id/pay
+Content-Type: application/json
+
+{
+  "successUrl": "https://example.com/success",
+  "cancelUrl": "https://example.com/cancel"
+}
+
+### 8.8 Invalid Order ID (should fail)
+POST {{baseUrl}}/api/v1/public/restaurants/{{slug}}/orders/invalid-uuid/pay
+Content-Type: application/json
+
+{
+  "successUrl": "https://example.com/success",
+  "cancelUrl": "https://example.com/cancel"
+}
+
+### 8.9 Cancelled Order Payment (should fail)
+# First create and cancel an order, then try to pay
+POST {{baseUrl}}/api/v1/public/restaurants/{{slug}}/orders/cancelled-order-id/pay
+Content-Type: application/json
+
+{
+  "successUrl": "https://example.com/success",
+  "cancelUrl": "https://example.com/cancel"
+}
+
+### ============================================
+### 9. ENCRYPTION VERIFICATION
+### ============================================
+
+### 9.1 Verify Credentials Not Exposed in API Response
+# The config response should NOT contain actual credential values
+GET {{baseUrl}}/api/v1/admin/payments/config
+Authorization: Bearer {{accessToken}}
+
+### 9.2 Check Database Directly (manual verification)
+# Credentials should be encrypted in database:
+# SELECT encrypted_secret_key FROM restaurant_payment_configs;
+# Format should be: iv:authTag:encryptedData (hex encoded)
+
+### ============================================
+### 10. EDGE CASES
+### ============================================
+
+### 10.1 Webhook with Unknown Event Type (should be gracefully handled)
+POST {{baseUrl}}/api/v1/webhooks/stripe
+Content-Type: application/json
+Stripe-Signature: test_signature_unknown
+
+{
+  "id": "evt_unknown_{{$randomInt}}",
+  "object": "event",
+  "type": "unknown.event.type",
+  "created": 1704672000,
+  "data": {
+    "object": {
+      "id": "obj_unknown"
+    }
+  }
+}
+
+### 10.2 Webhook with Missing Metadata (should handle gracefully)
+POST {{baseUrl}}/api/v1/webhooks/stripe
+Content-Type: application/json
+Stripe-Signature: test_signature_no_metadata
+
+{
+  "id": "evt_no_meta_{{$randomInt}}",
+  "object": "event",
+  "type": "checkout.session.completed",
+  "created": 1704672000,
+  "data": {
+    "object": {
+      "id": "cs_test_no_meta",
+      "object": "checkout.session",
+      "amount_total": 1318,
+      "currency": "usd"
+    }
+  }
+}
+
+### 10.3 Webhook with Invalid Signature (should be rejected)
+POST {{baseUrl}}/api/v1/webhooks/stripe
+Content-Type: application/json
+Stripe-Signature: invalid_signature
+
+{
+  "id": "evt_invalid_sig",
+  "object": "event",
+  "type": "checkout.session.completed",
+  "data": {
+    "object": {
+      "id": "cs_test",
+      "metadata": {
+        "orderId": "{{orderId}}"
+      }
+    }
+  }
+}
+
+### 10.4 Multiple Payment Intents for Same Order
+POST {{baseUrl}}/api/v1/public/restaurants/{{slug}}/orders/{{orderId}}/pay
+Content-Type: application/json
+
+{
+  "successUrl": "https://example.com/success2",
+  "cancelUrl": "https://example.com/cancel2"
+}
+
+### ============================================
+### 11. FULL PAYMENT FLOW TEST
+### ============================================
+
+### 11.1 Create New Order
+# @name fullFlowOrder
+POST {{baseUrl}}/api/v1/public/restaurants/{{slug}}/orders
+Content-Type: application/json
+Idempotency-Key: {{$guid}}
+
+{
+  "customerName": "Full Flow Test",
+  "customerEmail": "fullflow@test.com",
+  "customerPhone": "+1234567890",
+  "items": [
+    {
+      "menuItemId": "28215316-fef5-4a53-93c1-53f17fda76b6",
+      "quantity": 2
+    }
+  ]
+}
+
+### 11.2 Initiate Payment
+@fullFlowOrderId = {{fullFlowOrder.response.body.data.id}}
+
+POST {{baseUrl}}/api/v1/public/restaurants/{{slug}}/orders/{{fullFlowOrderId}}/pay
+Content-Type: application/json
+
+{
+  "successUrl": "https://example.com/success",
+  "cancelUrl": "https://example.com/cancel"
+}
+
+### 11.3 Simulate Successful Payment Webhook
+POST {{baseUrl}}/api/v1/webhooks/stripe
+Content-Type: application/json
+Stripe-Signature: test_full_flow_sig
+
+{
+  "id": "evt_full_flow_{{$randomInt}}",
+  "object": "event",
+  "type": "checkout.session.completed",
+  "created": 1704672000,
+  "data": {
+    "object": {
+      "id": "cs_full_flow",
+      "object": "checkout.session",
+      "amount_total": 2636,
+      "currency": "usd",
+      "customer_email": "fullflow@test.com",
+      "metadata": {
+        "orderId": "{{fullFlowOrderId}}",
+        "restaurantId": "test-restaurant-id"
+      },
+      "payment_status": "paid"
+    }
+  }
+}
+
+### 11.4 Verify Order is Now PAID
+GET {{baseUrl}}/api/v1/public/restaurants/{{slug}}/orders/{{fullFlowOrderId}}
+
+### 11.5 Progress Order Through State Machine
+PUT {{baseUrl}}/api/v1/admin/orders/{{fullFlowOrderId}}/status
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "status": "ACCEPTED",
+  "notes": "Order accepted after successful payment"
+}
+
+### ============================================
+### 12. SECURITY TESTS
+### ============================================
+
+### 12.1 Unauthenticated Access to Admin Config (should fail)
+GET {{baseUrl}}/api/v1/admin/payments/config
+
+### 12.2 Unauthenticated Update Config (should fail)
+PUT {{baseUrl}}/api/v1/admin/payments/config
+Content-Type: application/json
+
+{
+  "provider": "STRIPE",
+  "credentials": {
+    "secretKey": "sk_test_unauthorized"
+  }
+}
+
+### 12.3 STAFF Try to Update Config (should fail - OWNER only)
+# Login as STAFF first
+POST {{baseUrl}}/api/v1/auth/login
+Content-Type: application/json
+
+{
+  "slug": "{{slug}}",
+  "email": "staff@test.com",
+  "password": "Password123!"
+}
+
+### 12.4 Staff Try to Update Config (should be forbidden)
+PUT {{baseUrl}}/api/v1/admin/payments/config
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "provider": "STRIPE",
+  "credentials": {
+    "secretKey": "sk_test_staff_unauthorized"
+  }
+}
+
+### ============================================
+### END OF TESTS
+### ============================================

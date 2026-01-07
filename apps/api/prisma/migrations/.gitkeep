@@ -1,0 +1,17 @@
+-- CreateEnum
+CREATE TYPE "UserRole" AS ENUM ('OWNER', 'MANAGER', 'STAFF');
+
+-- CreateEnum
+CREATE TYPE "OrderStatus" AS ENUM ('CREATED', 'PAYMENT_PENDING', 'PAID', 'ACCEPTED', 'PREPARING', 'READY', 'COMPLETED', 'CANCELLED');
+
+-- CreateEnum
+CREATE TYPE "PaymentProvider" AS ENUM ('STRIPE', 'SQUARE');
+
+-- CreateEnum
+CREATE TYPE "PaymentStatus" AS ENUM ('PENDING', 'COMPLETED', 'FAILED', 'REFUNDED');
+
+-- CreateEnum
+CREATE TYPE "BotSessionState" AS ENUM ('GREETING', 'BROWSING_MENU', 'BUILDING_CART', 'CHECKOUT', 'PAYMENT', 'ORDER_PLACED', 'ORDER_STATUS');
+
+-- Placeholder for initial migration
+-- Run: pnpm db:migrate to generate actual migration
