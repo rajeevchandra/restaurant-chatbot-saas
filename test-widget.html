@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Restaurant Chatbot Widget Test</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 40px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      margin: 0;
+    }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background: white;
+      padding: 40px;
+      border-radius: 10px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+    }
+    h1 {
+      color: #333;
+      margin-bottom: 20px;
+    }
+    p {
+      color: #666;
+      line-height: 1.6;
+    }
+    .info-box {
+      background: #f0f4f8;
+      padding: 20px;
+      border-radius: 8px;
+      margin: 20px 0;
+    }
+    .info-box h3 {
+      margin-top: 0;
+      color: #667eea;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🍕 Welcome to Our Restaurant</h1>
+    <p>
+      This is a test page for the restaurant chatbot widget. 
+      You should see a chat button in the bottom right corner of the page.
+    </p>
+    
+    <div class="info-box">
+      <h3>How to use the widget:</h3>
+      <ul>
+        <li>Click the chat button in the bottom right corner</li>
+        <li>Start a conversation with the chatbot</li>
+        <li>Try ordering food, asking about the menu, or checking your order status</li>
+        <li>The widget should persist your session across page reloads</li>
+      </ul>
+    </div>
+
+    <div class="info-box">
+      <h3>Test Restaurant Details:</h3>
+      <ul>
+        <li><strong>Restaurant Slug:</strong> test-restaurant</li>
+        <li><strong>API Endpoint:</strong> http://localhost:3000</li>
+      </ul>
+    </div>
+
+    <p>
+      Lorem ipsum dolor sit amet, consectetur adipiscing elit. 
+      Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
+      Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris.
+    </p>
+  </div>
+
+  <!-- Widget Container -->
+  <div id="restaurant-chat-widget"></div>
+
+  <!-- Widget Embed Script -->
+  <script type="module">
+    // Set restaurant slug for development mode
+    window.RESTAURANT_SLUG = 'test-restaurant';
+    
+    // Import and initialize the widget
+    import { initWidget } from 'http://localhost:3002/src/index.tsx';
+    
+    // Initialize widget when DOM is ready
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', () => {
+        initWidget('test-restaurant', 'restaurant-chat-widget');
+      });
+    } else {
+      initWidget('test-restaurant', 'restaurant-chat-widget');
+    }
+  </script>
+</body>
+</html>

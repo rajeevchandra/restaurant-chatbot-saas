@@ -57,7 +57,6 @@ export default function PaymentLink({
             type="button"
             onClick={(e) => {
               e.preventDefault()
-              console.log('I have paid button clicked')
               onConfirmPayment()
             }}
             className="confirm-payment-btn"

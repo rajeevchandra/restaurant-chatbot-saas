@@ -13,7 +13,7 @@ router.get(
   resolvePublicTenant,
   async (req: TenantRequest, res: Response) => {
     const categories = await prisma.menuCategory.findMany({
-      where: { restaurantId: req.restaurantId, isActive: true },
+      where: { restaurantId: req.tenant!.restaurantId, isActive: true },
       include: {
         menuItems: {
           where: { isAvailable: true },
@@ -62,7 +62,7 @@ router.post(
   async (req: TenantRequest, res: Response) => {
     const { sessionId, message } = req.body;
 
-    const botEngine = new BotEngine(req.restaurantId!);
+    const botEngine = new BotEngine(req.tenant!.restaurantId);
     const response = await botEngine.processMessage(sessionId, message);
 
     res.json({

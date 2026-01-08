@@ -7,6 +7,7 @@ export type BotIntent =
   | 'add_to_cart'
   | 'remove_item'
   | 'checkout'
+  | 'pay'
   | 'order_status'
   | 'cancel_order'
   | 'help'
@@ -87,8 +88,15 @@ export class BotEngine {
       ? JSON.parse(session.context)
       : { state: session.state, cartItems: [] };
 
+    // Ensure context.state matches session.state
+    context.state = session.state;
+
+    console.log('Current session state:', session.state, 'Context state:', context.state);
+    console.log('Processing message:', message);
+
     // Detect intent from message
     const intent = this.detectIntent(message, context);
+    console.log('Detected intent:', intent);
 
     // Process intent based on current state (FSM)
     const response = await this.handleIntent(intent, message, context, session.state);
@@ -109,6 +117,16 @@ export class BotEngine {
   // Intent detection using keywords
   private detectIntent(message: string, context: BotContext): BotIntent {
     const lowerMessage = message.toLowerCase().trim();
+
+    // Try to parse JSON data from button actions
+    try {
+      const jsonData = JSON.parse(message);
+      if (jsonData.itemId && jsonData.quantity) {
+        return 'add_to_cart';
+      }
+    } catch {
+      // Not JSON, continue with keyword detection
+    }
 
     // Help intent
     if (lowerMessage.includes('help') || lowerMessage.includes('what can you do')) {
@@ -146,21 +164,45 @@ export class BotEngine {
     // Checkout intent
     if (
       lowerMessage.includes('checkout') ||
-      lowerMessage.includes('pay') ||
       lowerMessage.includes('complete order')
     ) {
       return 'checkout';
+    }
+
+    // Payment intent
+    if (
+      lowerMessage.includes('pay now') ||
+      lowerMessage.includes('make payment') ||
+      (lowerMessage.includes('pay') && !lowerMessage.includes('checkout'))
+    ) {
+      return 'pay';
     }
 
     // Confirm order intent
     if (
       lowerMessage.includes('confirm') ||
       lowerMessage.includes('yes') ||
-      lowerMessage.includes('proceed')
+      lowerMessage.includes('proceed') ||
+      lowerMessage.includes('i\'ve paid') ||
+      lowerMessage.includes('paid')
     ) {
       if (context.state === 'CHECKOUT') {
         return 'confirm_order';
       }
+      if (context.state === 'PAYMENT') {
+        return 'confirm_order'; // Reuse for payment confirmation
+      }
+    }
+
+    // Browse menu intent - check before "add to cart" to handle "Add More"
+    if (
+      lowerMessage.includes('menu') ||
+      lowerMessage.includes('browse') ||
+      lowerMessage.includes('show') ||
+      lowerMessage.includes('add more') ||
+      lowerMessage.includes('view menu')
+    ) {
+      return 'browse_menu';
     }
 
     // Add to cart intent
@@ -173,17 +215,12 @@ export class BotEngine {
       return 'add_to_cart';
     }
 
-    // Browse menu intent (default)
-    if (
-      lowerMessage.includes('menu') ||
-      lowerMessage.includes('browse') ||
-      lowerMessage.includes('show')
-    ) {
-      return 'browse_menu';
-    }
-
-    // Check if user is providing contact info
-    if (context.state === 'CHECKOUT' && (lowerMessage.includes('@') || /\d{10}/.test(lowerMessage))) {
+    // Check if user is providing contact info (when in CHECKOUT state)
+    if (context.state === 'CHECKOUT' && (
+      lowerMessage.includes('@') || 
+      /\d{3}[-\s]?\d{3}[-\s]?\d{4}/.test(message) ||
+      (lowerMessage.includes(',') && /\d/.test(message))
+    )) {
       return 'provide_contact';
     }
 
@@ -223,6 +260,11 @@ What would you like to do?`,
     // Order status - available from any state
     if (intent === 'order_status') {
       return await this.handleOrderStatus(context);
+    }
+
+    // Payment intent - available from PAYMENT or ORDER_PLACED states
+    if (intent === 'pay' && context.orderId) {
+      return await this.handlePayment(context);
     }
 
     // Cancel order - available from any state
@@ -465,6 +507,42 @@ What would you like to do?`,
       };
     }
 
+    // Check payment confirmation
+    if (intent === 'confirm_order') {
+      const order = await prisma.order.findUnique({
+        where: { id: context.orderId },
+        include: { payments: true },
+      });
+
+      if (!order) {
+        return {
+          botResponse: {
+            text: 'Order not found.',
+            quickReplies: ['Start Over'],
+          },
+          newState: 'GREETING' as BotSessionState,
+        };
+      }
+
+      // Check if payment actually completed (in real app, verify with payment provider)
+      if (order.status === 'PAID' || order.payments.some(p => p.status === 'COMPLETED')) {
+        return {
+          botResponse: {
+            text: `✅ Payment confirmed! Your order #${order.id.slice(0, 8)} is being prepared.\n\nTotal: $${Number(order.total).toFixed(2)}\n\nThank you for your order!`,
+            quickReplies: ['Order Status', 'New Order'],
+          },
+          newState: 'ORDER_PLACED' as BotSessionState,
+        };
+      } else {
+        return {
+          botResponse: {
+            text: `⚠️ We haven't received your payment yet. Please complete the payment and try again.\n\nOrder #${order.id.slice(0, 8)}\nTotal: $${Number(order.total).toFixed(2)}`,
+            quickReplies: ['Pay Now', 'Cancel Order', 'Order Status'],
+          },
+        };
+      }
+    }
+
     // Check payment status
     const order = await prisma.order.findUnique({
       where: { id: context.orderId },
@@ -533,25 +611,41 @@ What would you like to do?`,
 
   // Helper: Add item to cart
   private async handleAddToCart(message: string, context: BotContext): Promise<any> {
-    // Parse item name and quantity from message
-    const parsed = this.parseAddToCartMessage(message);
-
-    if (!parsed) {
-      return {
-        botResponse: {
-          text: 'Please specify what you\'d like to add. Example: "Add 2 Spring Rolls" or click on menu items.',
-          quickReplies: ['View Menu', 'My Cart'],
-        },
-      };
+    // Try to parse JSON data from button actions first
+    let itemId: string | null = null;
+    let quantity = 1;
+    let itemName: string | null = null;
+    
+    try {
+      const jsonData = JSON.parse(message);
+      if (jsonData.itemId) {
+        itemId = jsonData.itemId;
+        quantity = jsonData.quantity || 1;
+      }
+    } catch {
+      // Not JSON, try parsing as natural language
+      const parsed = this.parseAddToCartMessage(message);
+      if (!parsed) {
+        return {
+          botResponse: {
+            text: 'Please specify what you\'d like to add. Example: "Add 2 Spring Rolls" or click on menu items.',
+            quickReplies: ['View Menu', 'My Cart'],
+          },
+        };
+      }
+      itemName = parsed.itemName;
+      quantity = parsed.quantity;
     }
 
-    // Find menu item
+    // Find menu item by ID or name
     const menuItem = await prisma.menuItem.findFirst({
-      where: {
-        restaurantId: this.restaurantId,
-        name: { contains: parsed.itemName, mode: 'insensitive' },
-        isAvailable: true,
-      },
+      where: itemId 
+        ? { id: itemId, restaurantId: this.restaurantId, isAvailable: true }
+        : {
+            restaurantId: this.restaurantId,
+            name: { contains: itemName!, mode: 'insensitive' },
+            isAvailable: true,
+          },
       include: {
         inventory: true,
         options: {
@@ -564,14 +658,14 @@ What would you like to do?`,
     if (!menuItem) {
       return {
         botResponse: {
-          text: `Sorry, I couldn't find "${parsed.itemName}" on our menu. Please check the menu.`,
+          text: itemId ? 'Sorry, this item is no longer available.' : `Sorry, I couldn't find that item on our menu. Please check the menu.`,
           quickReplies: ['View Menu', 'My Cart'],
         },
       };
     }
 
     // Check inventory
-    if (menuItem.inventory && menuItem.inventory.quantity < parsed.quantity) {
+    if (menuItem.inventory && menuItem.inventory.quantity < quantity) {
       return {
         botResponse: {
           text: `Sorry, we only have ${menuItem.inventory.quantity} ${menuItem.name} available.`,
@@ -595,19 +689,19 @@ What would you like to do?`,
     const existingItem = newContext.cartItems.find((item) => item.menuItemId === menuItem.id);
 
     if (existingItem) {
-      existingItem.quantity += parsed.quantity;
+      existingItem.quantity += quantity;
     } else {
       newContext.cartItems.push({
         menuItemId: menuItem.id,
         menuItemName: menuItem.name,
-        quantity: parsed.quantity,
+        quantity: quantity,
         unitPrice: Number(menuItem.price),
       });
     }
 
     return {
       botResponse: {
-        text: `✅ Added ${parsed.quantity}x ${menuItem.name} to your cart!`,
+        text: `✅ Added ${quantity}x ${menuItem.name} to your cart!`,
         quickReplies: ['View Cart', 'Add More', 'Checkout'],
       },
       newState: 'BUILDING_CART' as BotSessionState,
@@ -670,11 +764,62 @@ What would you like to do?`,
       };
     }
 
+    const statusEmoji = order.status === 'PAID' ? '✅' : order.status === 'CANCELLED' ? '❌' : '⏳';
+    
     return {
       botResponse: {
-        text: `Order #${order.id.slice(0, 8)}\nStatus: ${order.status}\nTotal: $${Number(order.total).toFixed(2)}\nItems: ${order.items.length}`,
-        quickReplies: ['Cancel Order', 'New Order'],
+        text: `${statusEmoji} Order #${order.id.slice(0, 8)}\nStatus: ${order.status}\nTotal: $${Number(order.total).toFixed(2)}\nItems: ${order.items.length}`,
+        quickReplies: order.status === 'PENDING' ? ['Pay Now', 'Cancel Order', 'View Menu'] : ['New Order', 'View Menu'],
       },
+    };
+  }
+
+  // Helper: Handle payment
+  private async handlePayment(context: BotContext): Promise<any> {
+    if (!context.orderId) {
+      return {
+        botResponse: {
+          text: 'No order found to pay for.',
+          quickReplies: ['View Menu'],
+        },
+        newState: 'GREETING' as BotSessionState,
+      };
+    }
+
+    const order = await prisma.order.findUnique({
+      where: { id: context.orderId },
+    });
+
+    if (!order) {
+      return {
+        botResponse: {
+          text: 'Order not found.',
+          quickReplies: ['View Menu'],
+        },
+        newState: 'GREETING' as BotSessionState,
+      };
+    }
+
+    if (order.status === 'PAID') {
+      return {
+        botResponse: {
+          text: `✅ This order has already been paid!`,
+          quickReplies: ['Order Status', 'New Order'],
+        },
+        newState: 'ORDER_PLACED' as BotSessionState,
+      };
+    }
+
+    // Generate payment link (placeholder - you'll integrate with Stripe/PayPal later)
+    const paymentLink = `${process.env.APP_URL || 'http://localhost:3000'}/payment/${order.id}`;
+    
+    return {
+      botResponse: {
+        text: `💳 Ready to pay $${Number(order.total).toFixed(2)}?\n\nClick the link below to complete your payment securely:\n${paymentLink}\n\nAfter payment, return here to confirm!`,
+        quickReplies: ['I\'ve Paid', 'Cancel Order', 'Order Status'],
+        data: { paymentLink, orderId: order.id, amount: order.total },
+      },
+      newState: 'PAYMENT' as BotSessionState,
     };
   }
 
@@ -882,11 +1027,17 @@ What would you like to do?`,
       if (part.includes('@')) {
         info.email = part;
       } else if (/\d{3}[-\s]?\d{3}[-\s]?\d{4}/.test(part)) {
-        info.phone = part.replace(/[-\s]/g, '');
+        // Extract and normalize phone number
+        const phoneMatch = part.match(/(\d{3})[-\s]?(\d{3})[-\s]?(\d{4})/);
+        if (phoneMatch) {
+          info.phone = phoneMatch[1] + phoneMatch[2] + phoneMatch[3];
+        }
       } else if (!info.name && part.length > 2) {
         info.name = part;
       }
     }
+
+    console.log('Parsed contact info:', info, 'from message:', message);
 
     return info;
   }
