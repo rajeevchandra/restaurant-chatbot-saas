@@ -60,22 +60,14 @@ app.use(cookieParser(config.cookie.secret));
 // BODY PARSING
 // ========================================
 
-// Webhook routes need raw body for signature verification
-app.use('/api/webhooks', express.raw({ type: 'application/json' }), (req, res, next) => {
-  if (req.body) {
-    (req as any).rawBody = req.body;
-  }
-  next();
-});
+// Special handling for webhook routes - they need raw body for signature verification
+// Must be defined BEFORE general JSON parser
+app.use('/api/webhooks/stripe', express.raw({ type: 'application/json' }));
+app.use('/api/webhooks/square', express.raw({ type: 'application/json' }));
+app.use('/api/v1/webhooks/stripe', express.raw({ type: 'application/json' }));
+app.use('/api/v1/webhooks/square', express.raw({ type: 'application/json' }));
 
-app.use('/api/v1/webhooks', express.raw({ type: 'application/json' }), (req, res, next) => {
-  if (req.body) {
-    (req as any).rawBody = req.body;
-  }
-  next();
-});
-
-// JSON body parser with size limit
+// General JSON body parser for all other routes
 app.use(express.json({ limit: config.bodyLimit }));
 app.use(express.urlencoded({ extended: true, limit: config.bodyLimit }));
 

@@ -109,7 +109,7 @@ export default function DashboardPage() {
 
   const calculateDelta = (current: number, previous: number): number => {
     if (previous === 0) return 0;
-    return Math.abs(((current - previous) / previous) * 100);
+    return Math.round(Math.abs(((current - previous) / previous) * 100) * 100) / 100;
   };
 
   const orderColumns = [

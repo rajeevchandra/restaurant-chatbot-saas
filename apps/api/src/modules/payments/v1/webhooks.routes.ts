@@ -1,8 +1,23 @@
-import { Router } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
 import { PaymentsController } from './payments.controller';
 
 const router = Router();
 const controller = new PaymentsController();
+
+// Middleware to parse raw body and store it for webhook verification
+const webhookBodyHandler = (req: Request, res: Response, next: NextFunction) => {
+  if (Buffer.isBuffer(req.body)) {
+    // Store raw body for signature verification
+    (req as any).rawBody = req.body.toString('utf8');
+    // Parse to JSON for easier access
+    try {
+      req.body = JSON.parse((req as any).rawBody);
+    } catch (error) {
+      return res.status(400).json({ error: 'Invalid JSON in webhook body' });
+    }
+  }
+  next();
+};
 
 /**
  * @swagger
@@ -23,7 +38,7 @@ const controller = new PaymentsController();
  *       400:
  *         description: Webhook verification failed or processing error
  */
-router.post('/stripe', controller.handleStripeWebhook.bind(controller));
+router.post('/stripe', webhookBodyHandler, controller.handleStripeWebhook.bind(controller));
 
 /**
  * @swagger
@@ -44,6 +59,6 @@ router.post('/stripe', controller.handleStripeWebhook.bind(controller));
  *       400:
  *         description: Webhook verification failed or processing error
  */
-router.post('/square', controller.handleSquareWebhook.bind(controller));
+router.post('/square', webhookBodyHandler, controller.handleSquareWebhook.bind(controller));
 
 export default router;

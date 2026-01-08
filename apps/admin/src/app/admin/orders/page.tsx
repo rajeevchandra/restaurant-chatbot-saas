@@ -248,19 +248,18 @@ export default function OrdersPage() {
 
   if (loading) {
     return (
-      <div className=\"space-y-8\">
-        <PageHeader title=\"Orders\" description=\"Manage and track all customer orders\" />
-        <div className=\"animate-pulse space-y-4\">
-          <div className=\"h-12 rounded-xl bg-gray-200\" />
-          <div className=\"h-32 rounded-xl bg-gray-200\" />
-          <div className=\"h-32 rounded-xl bg-gray-200\" />
-          <div className=\"h-32 rounded-xl bg-gray-200\" />
+      <div className="space-y-8">
+        <PageHeader title="Orders" description="Manage and track all customer orders" />
+        <div className="animate-pulse space-y-4">
+          <div className="h-12 rounded-xl bg-gray-200" />
+          <div className="h-32 rounded-xl bg-gray-200" />
+          <div className="h-32 rounded-xl bg-gray-200" />
+          <div className="h-32 rounded-xl bg-gray-200" />
         </div>
       </div>
     );
   }
 
-  return (
   return (
     <>
       <div className="space-y-6">
@@ -589,50 +588,4 @@ export default function OrdersPage() {
       )}
     </>
   );
-}
-                <th className="text-left py-3 px-4">Items</th>
-                <th className="text-left py-3 px-4">Total</th>
-                <th className="text-left py-3 px-4">Status</th>
-                <th className="text-left py-3 px-4">Time</th>
-                <th className="text-left py-3 px-4">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {orders.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="text-center py-8 text-gray-500">
-                    No orders yet
-                  </td>
-                </tr>
-              ) : (
-                orders.map((order) => (
-                  <tr key={order.id} className="border-b hover:bg-gray-50">
-                    <td className="py-3 px-4 font-mono text-sm">
-                      #{order.id.slice(0, 8)}
-                    </td>
-                    <td className="py-3 px-4">{order.customerName || 'Guest'}</td>
-                    <td className="py-3 px-4">{order.items?.length || 0}</td>
-                    <td className="py-3 px-4">${order.total}</td>
-                    <td className="py-3 px-4">
-                      <span className={`px-2 py-1 rounded text-sm ${STATUS_COLORS[order.status]}`}>
-                        {order.status}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 text-sm text-gray-600">
-                      {new Date(order.createdAt).toLocaleString()}
-                    </td>
-                    <td className="py-3 px-4">
-                      <button className="text-primary-600 hover:text-primary-700">
-                        View
-                      </button>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
-  )
 }
