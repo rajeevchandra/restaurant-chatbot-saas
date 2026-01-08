@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Restaurant Widget Embed Example</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      margin: 0;
+      padding: 40px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+    }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background: white;
+      padding: 40px;
+      border-radius: 16px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+    }
+    h1 {
+      color: #1f2937;
+      margin-bottom: 20px;
+    }
+    .section {
+      margin-bottom: 40px;
+    }
+    .code-block {
+      background: #f3f4f6;
+      padding: 20px;
+      border-radius: 8px;
+      overflow-x: auto;
+      font-family: 'Courier New', monospace;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+    .highlight {
+      background: #fef3c7;
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+    th, td {
+      padding: 12px;
+      text-align: left;
+      border-bottom: 1px solid #e5e7eb;
+    }
+    th {
+      background: #f9fafb;
+      font-weight: 600;
+      color: #374151;
+    }
+    .badge {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .badge.required {
+      background: #fee2e2;
+      color: #991b1b;
+    }
+    .badge.optional {
+      background: #dbeafe;
+      color: #1e40af;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🍽️ Restaurant Chatbot Widget - Embed Guide</h1>
+    
+    <div class="section">
+      <h2>Quick Start</h2>
+      <p>Add this single line to your website to embed the chatbot widget:</p>
+      <div class="code-block">
+&lt;script src="<span class="highlight">https://yourcdn.com/widget.js</span>"
+        data-restaurant-slug="<span class="highlight">demo-bistro</span>"
+        data-position="bottom-right"
+        data-primary-color="#667eea"
+        data-brand-name="Demo Bistro"&gt;&lt;/script&gt;
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>Configuration Options</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Attribute</th>
+            <th>Type</th>
+            <th>Required</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>data-restaurant-slug</code></td>
+            <td>string</td>
+            <td><span class="badge required">Required</span></td>
+            <td>Your restaurant's unique identifier</td>
+          </tr>
+          <tr>
+            <td><code>data-position</code></td>
+            <td>string</td>
+            <td><span class="badge optional">Optional</span></td>
+            <td>Position: <code>bottom-right</code>, <code>bottom-left</code>, <code>top-right</code>, <code>top-left</code><br>Default: <code>bottom-right</code></td>
+          </tr>
+          <tr>
+            <td><code>data-primary-color</code></td>
+            <td>string</td>
+            <td><span class="badge optional">Optional</span></td>
+            <td>Theme color (hex format)<br>Default: <code>#667eea</code></td>
+          </tr>
+          <tr>
+            <td><code>data-brand-name</code></td>
+            <td>string</td>
+            <td><span class="badge optional">Optional</span></td>
+            <td>Display name in chat header<br>Default: Uses slug</td>
+          </tr>
+          <tr>
+            <td><code>data-api-url</code></td>
+            <td>string</td>
+            <td><span class="badge optional">Optional</span></td>
+            <td>API endpoint URL<br>Default: <code>http://localhost:3000</code></td>
+          </tr>
+          <tr>
+            <td><code>data-z-index</code></td>
+            <td>number</td>
+            <td><span class="badge optional">Optional</span></td>
+            <td>CSS z-index value<br>Default: <code>9999</code></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="section">
+      <h2>Examples</h2>
+      
+      <h3>Minimal (Required Only)</h3>
+      <div class="code-block">
+&lt;script src="https://yourcdn.com/widget.js"
+        data-restaurant-slug="my-restaurant"&gt;&lt;/script&gt;
+      </div>
+
+      <h3>Custom Position & Color</h3>
+      <div class="code-block">
+&lt;script src="https://yourcdn.com/widget.js"
+        data-restaurant-slug="cafe-deluxe"
+        data-position="bottom-left"
+        data-primary-color="#10b981"
+        data-brand-name="Café Deluxe"&gt;&lt;/script&gt;
+      </div>
+
+      <h3>Production with Custom API</h3>
+      <div class="code-block">
+&lt;script src="https://cdn.yourcompany.com/widget.js"
+        data-restaurant-slug="pizza-palace"
+        data-position="bottom-right"
+        data-primary-color="#ef4444"
+        data-brand-name="Pizza Palace"
+        data-api-url="https://api.yourcompany.com"
+        data-z-index="10000"&gt;&lt;/script&gt;
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>Features</h2>
+      <ul>
+        <li>✅ <strong>Shadow DOM Isolation</strong> - No CSS conflicts with your site</li>
+        <li>✅ <strong>Responsive Design</strong> - Works on mobile and desktop</li>
+        <li>✅ <strong>Customizable Theming</strong> - Match your brand colors</li>
+        <li>✅ <strong>Flexible Positioning</strong> - Place anywhere on the page</li>
+        <li>✅ <strong>Zero Dependencies</strong> - Self-contained bundle</li>
+        <li>✅ <strong>Multiple Instances</strong> - Support multiple restaurants (advanced)</li>
+        <li>✅ <strong>Session Persistence</strong> - Conversations saved across page loads</li>
+      </ul>
+    </div>
+
+    <div class="section">
+      <h2>Advanced: Programmatic Control</h2>
+      <p>For advanced use cases, you can control the widget via JavaScript:</p>
+      <div class="code-block">
+// Initialize manually
+window.RestaurantWidget.init({
+  restaurantSlug: 'my-restaurant',
+  position: 'bottom-right',
+  primaryColor: '#667eea',
+  brandName: 'My Restaurant',
+  apiUrl: 'https://api.example.com',
+  zIndex: 9999
+});
+
+// Destroy instance
+window.RestaurantWidget.destroy('restaurant-widget-my-restaurant');
+
+// Check active instances
+console.log(window.RestaurantWidget.instances);
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>Need Help?</h2>
+      <p>Contact support at <a href="mailto:support@example.com">support@example.com</a></p>
+      <p>Documentation: <a href="https://docs.example.com">https://docs.example.com</a></p>
+    </div>
+  </div>
+
+  <!-- EXAMPLE: The actual widget embedded on this page! -->
+  <!-- In development, this would load from your local server -->
+  <!--
+  <script src="http://localhost:3002/src/embed.ts" type="module"
+          data-restaurant-slug="demo-restaurant"
+          data-position="bottom-right"
+          data-primary-color="#667eea"
+          data-brand-name="Demo Bistro"></script>
+  -->
+</body>
+</html>

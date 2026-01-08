@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Widget Test - Built Version</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .container {
+      background: white;
+      padding: 60px;
+      border-radius: 20px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      max-width: 600px;
+      text-align: center;
+    }
+    h1 {
+      color: #1f2937;
+      font-size: 2.5rem;
+      margin-bottom: 20px;
+    }
+    .emoji {
+      font-size: 4rem;
+      margin-bottom: 20px;
+      display: block;
+    }
+    p {
+      color: #6b7280;
+      font-size: 1.25rem;
+      line-height: 1.8;
+      margin-bottom: 30px;
+    }
+    .highlight {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      font-weight: 700;
+    }
+    .badge {
+      display: inline-block;
+      background: #f3f4f6;
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 0.875rem;
+      color: #6b7280;
+      margin: 5px;
+    }
+    .badge.active {
+      background: #dbeafe;
+      color: #1e40af;
+    }
+    .instructions {
+      margin-top: 30px;
+      padding: 20px;
+      background: #fef3c7;
+      border-radius: 12px;
+      border-left: 4px solid #f59e0b;
+      text-align: left;
+    }
+    .instructions h3 {
+      color: #92400e;
+      margin-bottom: 10px;
+      font-size: 1.1rem;
+    }
+    .instructions p {
+      color: #92400e;
+      font-size: 0.95rem;
+      margin-bottom: 10px;
+    }
+    .instructions code {
+      background: rgba(0,0,0,0.1);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: 'Courier New', monospace;
+      font-size: 0.85rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <span class="emoji">🍽️</span>
+    <h1>Welcome to <span class="highlight">Demo Bistro</span></h1>
+    <p>
+      This is a test page for the <strong>BUILT</strong> restaurant chatbot widget.
+      <br><br>
+      <strong>Look for the chat button in the bottom-right corner!</strong>
+    </p>
+    <div>
+      <span class="badge active">✓ Built Widget</span>
+      <span class="badge">Production Ready</span>
+      <span class="badge">Mobile Responsive</span>
+    </div>
+    
+    <div class="instructions">
+      <h3>⚠️ Setup Required</h3>
+      <p>This page loads the built widget from <code>dist/widget.js</code></p>
+      <p><strong>Steps:</strong></p>
+      <p>1. Make sure API server is running: <code>npm run dev</code> (port 3000)</p>
+      <p>2. Open this file with a local server (not file://)</p>
+      <p>3. Try: <code>npx http-server . -p 8080</code> then open <code>http://localhost:8080/test-built-widget.html</code></p>
+    </div>
+  </div>
+
+  <!-- Load the BUILT widget bundle -->
+  <link rel="stylesheet" href="./dist/style.css">
+  <script src="./dist/widget.js"></script>
+  <script>
+    // Initialize widget programmatically
+    console.log('Available on window:', Object.keys(window).filter(k => k.includes('Widget') || k.includes('Restaurant')));
+    
+    if (window.RestaurantChatWidget) {
+      console.log('Found RestaurantChatWidget, initializing...');
+      window.RestaurantChatWidget.initWidget({
+        restaurantSlug: 'demo-restaurant',
+        brandName: 'Demo Bistro',
+        primaryColor: '#667eea',
+        apiUrl: 'http://localhost:3000'
+      });
+    } else {
+      console.error('RestaurantChatWidget not found. Make sure widget.js loaded correctly.');
+      console.log('window contents:', window);
+    }
+  </script>
+</body>
+</html>

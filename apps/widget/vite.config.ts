@@ -6,13 +6,10 @@ export default defineConfig({
   plugins: [react()],
   build: {
     lib: {
-      entry: {
-        widget: resolve(__dirname, 'src/index.tsx'),
-        embed: resolve(__dirname, 'src/embed.ts'),
-      },
+      entry: resolve(__dirname, 'src/index.tsx'),
       name: 'RestaurantChatWidget',
       formats: ['iife'],
-      fileName: (format, entryName) => `${entryName}.js`,
+      fileName: () => 'widget.js',
     },
     rollupOptions: {
       external: [],

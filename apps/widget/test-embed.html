@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Widget Embed Test</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .container {
+      background: white;
+      padding: 60px;
+      border-radius: 20px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      max-width: 600px;
+      text-align: center;
+    }
+    h1 {
+      color: #1f2937;
+      font-size: 2.5rem;
+      margin-bottom: 20px;
+    }
+    .emoji {
+      font-size: 4rem;
+      margin-bottom: 20px;
+      display: block;
+    }
+    p {
+      color: #6b7280;
+      font-size: 1.25rem;
+      line-height: 1.8;
+      margin-bottom: 30px;
+    }
+    .highlight {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      font-weight: 700;
+    }
+    .badge {
+      display: inline-block;
+      background: #f3f4f6;
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 0.875rem;
+      color: #6b7280;
+      margin: 5px;
+    }
+    .badge.active {
+      background: #dbeafe;
+      color: #1e40af;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <span class="emoji">🍽️</span>
+    <h1>Welcome to <span class="highlight">Demo Bistro</span></h1>
+    <p>
+      This is a test page demonstrating the restaurant chatbot widget.
+      <br><br>
+      <strong>Look for the chat button in the bottom-right corner!</strong>
+    </p>
+    <div>
+      <span class="badge active">✓ Widget Loaded</span>
+      <span class="badge">Shadow DOM Isolated</span>
+      <span class="badge">Mobile Responsive</span>
+    </div>
+  </div>
+
+  <!-- Widget Embed Script -->
+  <!-- For DEVELOPMENT: Load from local dev server -->
+  <script type="module">
+    // Development mode: manually initialize widget
+    import { initWidget } from 'http://localhost:3002/src/index.tsx';
+    
+    // Wait for DOM to be ready
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', () => {
+        initWidget({
+          restaurantSlug: 'demo-restaurant',
+          brandName: 'Demo Bistro',
+          primaryColor: '#667eea',
+          apiUrl: 'http://localhost:3000'
+        });
+      });
+    } else {
+      initWidget({
+        restaurantSlug: 'demo-restaurant',
+        brandName: 'Demo Bistro',
+        primaryColor: '#667eea',
+        apiUrl: 'http://localhost:3000'
+      });
+    }
+  </script>
+
+  <!-- For PRODUCTION: Use the built bundle -->
+  <!--
+  <script src="https://yourcdn.com/widget.js"
+          data-restaurant-slug="demo-restaurant"
+          data-position="bottom-right"
+          data-primary-color="#667eea"
+          data-brand-name="Demo Bistro"></script>
+  -->
+</body>
+</html>

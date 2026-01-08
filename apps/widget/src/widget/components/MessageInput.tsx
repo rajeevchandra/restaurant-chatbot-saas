@@ -23,18 +23,26 @@ export default function MessageInput({ onSend, disabled }: MessageInputProps) {
   }
 
   return (
-    <div className="message-input">
-      <input
-        type="text"
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        onKeyPress={handleKeyPress}
-        placeholder="Type a message..."
-        disabled={disabled}
-      />
-      <button onClick={handleSend} disabled={disabled || !text.trim()}>
-        Send
-      </button>
+    <div className="message-input-container">
+      <div className="message-input-wrapper">
+        <input
+          type="text"
+          className="message-input"
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          onKeyPress={handleKeyPress}
+          placeholder="Type a message..."
+          disabled={disabled}
+        />
+        <button 
+          className="send-btn" 
+          onClick={handleSend} 
+          disabled={disabled || !text.trim()}
+          aria-label="Send message"
+        >
+          ➤
+        </button>
+      </div>
     </div>
   )
 }
