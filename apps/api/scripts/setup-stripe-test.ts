@@ -41,10 +41,10 @@ async function setupStripeTest() {
     process.exit(1);
   }
 
-  const STRIPE_SECRET_KEY: string = 'sk_test_51SngZC8wkw28P0787UeN3sSnARND1yX3j7ojgE4nH7uBPwWwmcjmHUVUBTloeeEtK8zP17lAnK7qa0FBYZFt1R2M00ynYw7vdD'; // Replace with your actual test key
-  const STRIPE_PUBLISHABLE_KEY: string = 'pk_test_51SngZC8wkw28P078K9F6uzkiF9SmqXqgqlxGDYMFygTU2W8OaNsEJKF1kWZHiqlozcMhkBK7mDlFso5ubeAo2a2900lph3ozw0'; // Replace with your actual publishable key
+  const STRIPE_SECRET_KEY: string = 'sk_test_YOUR_SECRET_KEY_HERE'; // Replace with your actual test key from Stripe Dashboard
+  const STRIPE_PUBLISHABLE_KEY: string = 'pk_test_YOUR_PUBLISHABLE_KEY_HERE'; // Replace with your actual publishable key from Stripe Dashboard
   
-  if (STRIPE_SECRET_KEY === 'sk_test_YOUR_KEY_HERE') {
+  if (STRIPE_SECRET_KEY === 'sk_test_YOUR_SECRET_KEY_HERE' || STRIPE_PUBLISHABLE_KEY === 'pk_test_YOUR_PUBLISHABLE_KEY_HERE') {
     console.error('❌ Please edit this script and add your Stripe test keys first!');
     console.log('\n📝 Get your keys from: https://dashboard.stripe.com/test/apikeys');
     process.exit(1);
