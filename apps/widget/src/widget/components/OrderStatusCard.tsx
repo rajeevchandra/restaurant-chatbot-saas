@@ -13,6 +13,7 @@ interface OrderStatusCardProps {
   estimatedTime?: string
   onRefresh?: () => void
   onCancel?: () => void
+  onDone?: () => void
   isRefreshing?: boolean
 }
 
@@ -33,15 +34,16 @@ export default function OrderStatusCard({
   estimatedTime,
   onRefresh,
   onCancel,
+  onDone,
   isRefreshing = false
 }: OrderStatusCardProps) {
   const [showCancelConfirm, setShowCancelConfirm] = useState(false)
   const [autoRefreshIn, setAutoRefreshIn] = useState(10)
   const [lastRefresh, setLastRefresh] = useState(Date.now())
 
-  // Auto-refresh countdown
+  // Auto-refresh countdown - but not for PAID status
   useEffect(() => {
-    if (!onRefresh || ['DELIVERED', 'CANCELLED', 'FAILED'].includes(status)) {
+    if (!onRefresh || ['PAID', 'DELIVERED', 'CANCELLED', 'FAILED'].includes(status)) {
       return
     }
 
@@ -225,6 +227,16 @@ export default function OrderStatusCard({
       )}
 
       <div className="order-actions">
+        {/* Done button for PAID status */}
+        {status === 'PAID' && onDone && (
+          <button
+            className="done-order-action-btn"
+            onClick={onDone}
+          >
+            ✓ Done
+          </button>
+        )}
+        
         {canCancel && onCancel && (
           <button
             className="cancel-order-action-btn"

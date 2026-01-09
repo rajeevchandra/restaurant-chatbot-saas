@@ -9,6 +9,7 @@ import CheckoutForm from './components/CheckoutForm'
 import PaymentLink from './components/PaymentLink'
 import OrderStatusCard from './components/OrderStatusCard'
 import { getSessionId } from '../lib/session'
+import { getCart, saveCart, clearCart } from '../lib/cart'
 import { ApiClient } from '@restaurant-saas/shared'
 import './styles/widget.css'
 
@@ -31,6 +32,7 @@ interface BotResponseData {
     orderId?: string
     amount?: string | number
     cartItems?: any[]
+    showCheckoutForm?: boolean
   }
 }
 
@@ -70,11 +72,26 @@ export default function Widget({
   const [currentOrder, setCurrentOrder] = useState<Order | null>(null)
   const [isProcessingCheckout, setIsProcessingCheckout] = useState(false)
   const [pollingOrderId, setPollingOrderId] = useState<string | null>(null)
-  const sessionId = useRef(getSessionId())
+  const [error, setError] = useState<string | null>(null)
+  const sessionId = useRef(getSessionId(restaurantSlug))
   const API_URL = apiUrl || import.meta.env.VITE_API_URL || 'http://localhost:3000'
   const apiClient = useRef(new ApiClient(API_URL))
   const displayName = brandName || restaurantSlug
   const pollingInterval = useRef<NodeJS.Timeout | null>(null)
+  const terminalMessageShown = useRef<string | null>(null) // Track if terminal message shown for orderId
+
+  // Load cart from localStorage on mount
+  useEffect(() => {
+    const savedCart = getCart(restaurantSlug)
+    if (savedCart.length > 0) {
+      setCart(savedCart)
+    }
+  }, [restaurantSlug])
+
+  // Save cart to localStorage whenever it changes
+  useEffect(() => {
+    saveCart(restaurantSlug, cart)
+  }, [cart, restaurantSlug])
 
   // Apply custom primary color if provided
   useEffect(() => {
@@ -104,11 +121,35 @@ export default function Widget({
 
   useEffect(() => {
     if (isOpen && messages.length === 0) {
-      sendMessage('hi')
+      // Show welcome message immediately without API call
+      const welcomeMessage: Message = {
+        id: Date.now().toString(),
+        text: '👋 Welcome! How can I assist you today?',
+        sender: 'bot',
+        timestamp: new Date(),
+      }
+      setMessages([welcomeMessage])
+      
+      // Set initial quick replies
+      setQuickReplies(['View Menu', 'Special Offers', 'My Orders'])
     }
   }, [isOpen])
 
   const sendMessage = async (text: string) => {
+    // Close checkout form if user is navigating away (viewing menu, browsing, etc.)
+    const lowerText = text.toLowerCase()
+    const isNavigatingToMenu = lowerText.includes('menu') || 
+        lowerText.includes('browse') || 
+        lowerText.includes('view') ||
+        lowerText.includes('show') ||
+        lowerText.includes('back') ||
+        lowerText.includes('special') ||
+        lowerText.includes('offer')
+    
+    if (isNavigatingToMenu) {
+      setShowCheckoutForm(false)
+    }
+    
     // Add optimistic user message
     const optimisticId = `optimistic-${Date.now()}`
     const userMessage: Message = {
@@ -122,12 +163,25 @@ export default function Widget({
     setLoading(true)
 
     try {
+      setError(null)
       console.log('Sending message:', text, 'to restaurant:', restaurantSlug)
-      const response = await apiClient.current.sendBotMessage(
+      
+      let response = await apiClient.current.sendBotMessage(
         restaurantSlug,
         sessionId.current,
         text
       )
+
+      // Retry once on failure
+      if (!response.success && response.error) {
+        console.log('Retrying after error:', response.error)
+        await new Promise(resolve => setTimeout(resolve, 1000))
+        response = await apiClient.current.sendBotMessage(
+          restaurantSlug,
+          sessionId.current,
+          text
+        )
+      }
 
       console.log('Bot response:', response)
 
@@ -144,27 +198,64 @@ export default function Widget({
         const responseData = response.data as BotResponseData;
         console.log('Full response data:', JSON.stringify(responseData, null, 2));
         
-        const botMessage: Message = {
-          id: (Date.now() + 1).toString(),
-          text: responseData.text || responseData.message || 'No response',
-          sender: 'bot',
-          timestamp: new Date(),
-          data: responseData.data,
-        }
-        setMessages((prev) => [...prev, botMessage])
-        setQuickReplies(responseData.quickReplies || [])
-        console.log('Setting cards:', responseData.cards)
-        setCards(responseData.cards || [])
+        // Check if user just requested navigation (menu, special offers, etc.)
+        const userWantedNavigation = isNavigatingToMenu
         
-        // Show checkout form if bot is asking for contact info
-        if (responseData.text?.includes('Ready to checkout') || 
-            responseData.text?.includes('Please provide') ||
-            responseData.text?.includes('contact information')) {
-          setShowCheckoutForm(true)
-          setPaymentData(null)
-        } else {
+        // Detect if bot is stuck in wrong state (user asked for menu but bot returned checkout)
+        const botStuckInCheckout = userWantedNavigation && 
+          responseData.text?.toLowerCase().includes('contact information') &&
+          !responseData.cards
+        
+        let botMessage: Message
+        
+        if (botStuckInCheckout) {
+          // Override with helpful fallback message
+          botMessage = {
+            id: (Date.now() + 1).toString(),
+            text: "I'm having trouble loading the menu right now. Please click 'View Menu' again or type 'menu' to try again.",
+            sender: 'bot',
+            timestamp: new Date(),
+          }
+          setQuickReplies(['View Menu', 'My Orders', 'Special Offers'])
+          setCards([])
           setShowCheckoutForm(false)
+        } else {
+          botMessage = {
+            id: (Date.now() + 1).toString(),
+            text: responseData.text || responseData.message || 'No response',
+            sender: 'bot',
+            timestamp: new Date(),
+            data: responseData.data,
+          }
+          setQuickReplies(responseData.quickReplies || [])
+          console.log('Setting cards:', responseData.cards)
+          setCards(responseData.cards || [])
+          
+          // Show checkout form if bot is asking for contact info
+          const isAskingForContactInfo = 
+            responseData.text?.toLowerCase().includes('contact information') ||
+            responseData.text?.toLowerCase().includes('provide your details') ||
+            responseData.text?.toLowerCase().includes('checkout information') ||
+            (responseData.quickReplies?.includes('Cancel') && 
+             responseData.text?.toLowerCase().includes('provide'))
+          
+          // OVERRIDE: If user just asked to view menu/browse/etc., NEVER show checkout form
+          if (userWantedNavigation) {
+            setShowCheckoutForm(false)
+          } else if (responseData.data?.showCheckoutForm === true || isAskingForContactInfo) {
+            setShowCheckoutForm(true)
+            setPaymentData(null)
+          } else if (responseData.data?.showCheckoutForm === false || 
+                     (responseData.cards && responseData.cards.length > 0) || // Menu is being shown
+                     responseData.text?.toLowerCase().includes('menu') ||
+                     responseData.text?.toLowerCase().includes('browse')) {
+            // Explicitly hide checkout form when showing menu or other content
+            setShowCheckoutForm(false)
+          }
+          // Otherwise, maintain current state (don't change showCheckoutForm)
         }
+        
+        setMessages((prev) => [...prev, botMessage])
         
         // Show payment link if present in response
         if (responseData.data?.paymentLink) {
@@ -192,9 +283,11 @@ export default function Widget({
       }
     } catch (error) {
       console.error('Failed to send message:', error)
+      setError('Unable to send message. Please check your connection and try again.')
+      
       const errorMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        text: 'Sorry, I encountered an error. Please try again.',
+        id: Date.now().toString(),
+        text: 'Sorry, I\'m having trouble connecting right now. Please try again in a moment.',
         sender: 'bot',
         timestamp: new Date(),
       }
@@ -205,6 +298,23 @@ export default function Widget({
   }
 
   const handleQuickReply = (reply: string) => {
+    // If user clicks Cancel quick reply when checkout form is visible, close the form
+    if (reply.toLowerCase() === 'cancel' && showCheckoutForm) {
+      setShowCheckoutForm(false)
+      // Optionally send a message to inform the bot
+      sendMessage('I want to continue shopping')
+      return
+    }
+    
+    // If user clicks View Menu or similar, force close checkout form
+    const replyLower = reply.toLowerCase()
+    if (replyLower.includes('menu') || 
+        replyLower.includes('browse') || 
+        replyLower.includes('special') ||
+        replyLower.includes('offer')) {
+      setShowCheckoutForm(false)
+    }
+    
     sendMessage(reply)
   }
 
@@ -222,8 +332,76 @@ export default function Widget({
 
   const handleClearCart = () => {
     setCart([])
+    clearCart(restaurantSlug)
     setCurrentOrder(null)
     setPaymentData(null)
+  }
+
+  // Get quantity of item in cart
+  const getItemQuantity = (itemId: string): number => {
+    const item = cart.find(i => i.menuItemId === itemId || i.id === itemId)
+    const qty = item ? item.quantity : 0
+    console.log('getItemQuantity:', itemId, '=', qty)
+    return qty
+  }
+
+  // Add item to cart (quantity = 1)
+  const handleAddItemToCart = (itemId: string, itemName: string, unitPrice: number) => {
+    console.log('handleAddItemToCart:', itemId, itemName, unitPrice)
+    const existingItem = cart.find(i => (i.menuItemId === itemId || i.id === itemId))
+    
+    if (existingItem) {
+      // Item exists, increment quantity
+      setCart(prevCart => 
+        prevCart.map(item => 
+          (item.menuItemId === itemId || item.id === itemId)
+            ? { ...item, quantity: item.quantity + 1 }
+            : item
+        )
+      )
+    } else {
+      // New item, add to cart
+      setCart(prevCart => [
+        ...prevCart,
+        {
+          menuItemId: itemId,
+          menuItemName: itemName,
+          quantity: 1,
+          unitPrice: unitPrice,
+        }
+      ])
+    }
+  }
+
+  // Increment item quantity
+  const handleIncrementItem = (itemId: string) => {
+    setCart(prevCart => 
+      prevCart.map(item => 
+        (item.menuItemId === itemId || item.id === itemId)
+          ? { ...item, quantity: item.quantity + 1 }
+          : item
+      )
+    )
+  }
+
+  // Decrement item quantity (remove if reaches 0)
+  const handleDecrementItem = (itemId: string) => {
+    setCart(prevCart => {
+      const item = prevCart.find(i => (i.menuItemId === itemId || i.id === itemId))
+      if (!item) return prevCart
+      
+      if (item.quantity <= 1) {
+        // Remove item if quantity reaches 0
+        return prevCart.filter(i => (i.menuItemId !== itemId && i.id !== itemId))
+      } else {
+        // Decrement quantity
+        return prevCart.map(i => 
+          (i.menuItemId === itemId || i.id === itemId)
+            ? { ...i, quantity: i.quantity - 1 }
+            : i
+        )
+      }
+    })
   }
 
   const startOrderPolling = (orderId: string) => {
@@ -235,7 +413,7 @@ export default function Widget({
       pollCount++
       
       try {
-        const response = await apiClient.current.getOrder(orderId)
+        const response = await apiClient.current.getPublicOrder(restaurantSlug, orderId)
         if (response.success && response.data) {
           const order = response.data as Order
           
@@ -246,93 +424,42 @@ export default function Widget({
           if (['PAID', 'FAILED', 'CANCELLED', 'DELIVERED'].includes(order.status)) {
             stopOrderPolling()
             
-            if (order.status === 'PAID') {
-              // Clear cart on successful payment
-              setCart([])
-              setPaymentData(null)
+            // Only show terminal state message once per order
+            if (terminalMessageShown.current !== orderId) {
+              terminalMessageShown.current = orderId
               
-              // Add success message
-              const successMessage: Message = {
-                id: Date.now().toString(),
-                text: `✅ Payment successful! Your order #${orderId.slice(-8)} has been confirmed.`,
-                sender: 'bot',
-                timestamp: new Date(),
+              if (order.status === 'PAID') {
+                // Clear cart on successful payment
+                setCart([])
+                setPaymentData(null)
+                
+                // Add success message
+                const successMessage: Message = {
+                  id: Date.now().toString(),
+                  text: `✅ Payment successful! Your order #${orderId.slice(-8)} has been confirmed.`,
+                  sender: 'bot',
+                  timestamp: new Date(),
+                }
+                setMessages((prev) => [...prev, successMessage])
+              } else if (order.status === 'FAILED') {
+                // Add failure message
+                const failMessage: Message = {
+                  id: Date.now().toString(),
+                  text: `⚠️ Payment failed for order #${orderId.slice(-8)}. Please try again.`,
+                  sender: 'bot',
+                  timestamp: new Date(),
+                }
+                setMessages((prev) => [...prev, failMessage])
               }
-              setMessages((prev) => [...prev, successMessage])
-            } else if (order.status === 'FAILED') {
-              // Add failure message
-              const failMessage: Message = {
-                id: Date.now().toString(),
-                text: `⚠️ Payment failed for order #${orderId.slice(-8)}. Please try again.`,
-                sender: 'bot',
-                timestamp: new Date(),
-              }
-              setMessages((prev) => [...prev, failMessage])
             }
           }
         } else {
-          // API failed - use mock data for testing
-          // Simulate payment success after 3 polling attempts (9 seconds)
-          if (pollCount >= 3) {
-            stopOrderPolling()
-            
-            // Mock successful payment
-            const mockOrder: Order = {
-              id: orderId,
-              status: 'PAID',
-              totalAmount: calculateTotal(),
-              items: cart.map(item => ({
-                menuItemName: item.menuItemName,
-                quantity: item.quantity,
-                unitPrice: item.unitPrice
-              }))
-            }
-            
-            setCurrentOrder(mockOrder)
-            setCart([])
-            setPaymentData(null)
-            setPollingOrderId(null)
-            
-            const successMessage: Message = {
-              id: Date.now().toString(),
-              text: `✅ Payment successful! Your order #${orderId.slice(-8)} has been confirmed.`,
-              sender: 'bot',
-              timestamp: new Date(),
-            }
-            setMessages((prev) => [...prev, successMessage])
-          }
+          // API failed - log for debugging
+          console.warn(`Failed to poll order ${orderId}, attempt ${pollCount}`)
         }
       } catch (error) {
         console.error('Error polling order status:', error)
-        
-        // Use mock data after 3 attempts on error
-        if (pollCount >= 3) {
-          stopOrderPolling()
-          
-          const mockOrder: Order = {
-            id: orderId,
-            status: 'PAID',
-            totalAmount: calculateTotal(),
-            items: cart.map(item => ({
-              menuItemName: item.menuItemName,
-              quantity: item.quantity,
-              unitPrice: item.unitPrice
-            }))
-          }
-          
-          setCurrentOrder(mockOrder)
-          setCart([])
-          setPaymentData(null)
-          setPollingOrderId(null)
-          
-          const successMessage: Message = {
-            id: Date.now().toString(),
-            text: `✅ Payment successful! Your order #${orderId.slice(-8)} has been confirmed.`,
-            sender: 'bot',
-            timestamp: new Date(),
-          }
-          setMessages((prev) => [...prev, successMessage])
-        }
+        // Continue polling - don't stop on error
       }
     }, 3000) // Poll every 3 seconds
   }
@@ -348,24 +475,41 @@ export default function Widget({
     if (cart.length === 0) return
 
     setIsProcessingCheckout(true)
+    setError(null)
 
     try {
-      // Create order
+      // Create order via public endpoint
       const orderData = {
-        items: cart.map((item) => ({
-          menuItemId: item.menuItemId || item.id,
-          quantity: item.quantity,
-          selectedOptions: item.selectedOptions,
-        })),
+        items: cart.map((item) => {
+          const orderItem: any = {
+            menuItemId: item.menuItemId || item.id,
+            quantity: item.quantity,
+          }
+          // Only include selectedOptions if it exists and is an array
+          if (item.selectedOptions && Array.isArray(item.selectedOptions) && item.selectedOptions.length > 0) {
+            orderItem.selectedOptions = item.selectedOptions
+          }
+          return orderItem
+        }),
         customerName: 'Guest', // Will be updated with checkout form
         notes: `Session: ${sessionId.current}`,
       }
 
-      const response = await apiClient.current.createOrder(orderData)
+      let response = await apiClient.current.createPublicOrder(restaurantSlug, orderData)
+
+      // Retry once on failure
+      if (!response.success && response.error) {
+        console.log('Retrying order creation after error:', response.error)
+        await new Promise(resolve => setTimeout(resolve, 1000))
+        response = await apiClient.current.createPublicOrder(restaurantSlug, orderData)
+      }
 
       if (response.success && response.data) {
         const order = response.data as Order
         setCurrentOrder(order)
+        
+        // Reset terminal message flag for new order
+        terminalMessageShown.current = null
 
         // Add processing message
         const processingMessage: Message = {
@@ -395,30 +539,32 @@ export default function Widget({
           }
           setMessages((prev) => [...prev, paymentMessage])
         } else {
-          // Order created without payment (maybe cash on delivery)
-          setCart([])
+          // Order created without payment link - show order status instead
+          setPollingOrderId(order.id)
           
-          const successMessage: Message = {
+          const statusMessage: Message = {
             id: (Date.now() + 1).toString(),
-            text: `✅ Order #${order.id.slice(-8)} created successfully!`,
+            text: `✅ Order #${order.id.slice(-8)} has been received! Please contact the restaurant to complete payment.`,
             sender: 'bot',
             timestamp: new Date(),
           }
-          setMessages((prev) => [...prev, successMessage])
+          setMessages((prev) => [...prev, statusMessage])
         }
       } else {
         throw new Error(response.error || 'Failed to create order')
       }
     } catch (error) {
       console.error('Checkout error:', error)
+      setError('Unable to place your order. Please check your connection and try again.')
       
       const errorMessage: Message = {
         id: Date.now().toString(),
-        text: '❌ Sorry, there was an error processing your order. Please try again.',
+        text: 'I\'m having trouble placing your order right now. Please try again in a moment, or contact the restaurant directly.',
         sender: 'bot',
         timestamp: new Date(),
       }
       setMessages((prev) => [...prev, errorMessage])
+      setQuickReplies(['Try Again', 'View Cart', 'View Menu'])
     } finally {
       setIsProcessingCheckout(false)
     }
@@ -462,8 +608,8 @@ export default function Widget({
     try {
       stopOrderPolling()
       
-      // Try to cancel the order on the backend
-      const response = await apiClient.current.cancelOrder(pollingOrderId)
+      // Try to cancel the order on the backend using public endpoint
+      const response = await apiClient.current.cancelPublicOrder(restaurantSlug, pollingOrderId)
       
       if (response.success) {
         const cancelMessage: Message = {
@@ -518,6 +664,21 @@ export default function Widget({
       onClose={() => setIsOpen(false)}
       brandName={displayName}
     >
+      {/* Error Banner */}
+      {error && (
+        <div className="error-banner">
+          <span className="error-icon">⚠️</span>
+          <span className="error-text">{error}</span>
+          <button 
+            className="error-close" 
+            onClick={() => setError(null)}
+            aria-label="Dismiss error"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       <MessageList messages={messages} loading={loading} />
             
             {showCheckoutForm ? (
@@ -528,13 +689,35 @@ export default function Widget({
                 }}
                 onCancel={() => {
                   setShowCheckoutForm(false)
-                  sendMessage('Cancel')
+                  // Don't send any message - just close the form
                 }}
               />
             ) : (
               <>
-                {/* Order Status Card - shown when order is in terminal state OR actively tracking */}
-                {currentOrder && (
+                {/* Payment Link - shown when waiting for payment */}
+                {paymentData?.paymentLink && currentOrder?.status === 'PAYMENT_PENDING' && (
+                  <PaymentLink
+                    paymentLink={paymentData.paymentLink}
+                    amount={paymentData.amount}
+                    orderId={paymentData.orderId}
+                    onConfirmPayment={handleConfirmPayment}
+                    onCancelOrder={handleCancelOrder}
+                  />
+                )}
+
+                {/* Order Processing Indicator - shown while polling without payment link */}
+                {pollingOrderId && currentOrder?.status === 'PAYMENT_PENDING' && !paymentData?.paymentLink && (
+                  <div className="order-processing">
+                    <div className="spinner"></div>
+                    <div className="processing-text">
+                      <div className="processing-title">Waiting for payment...</div>
+                      <div className="processing-subtitle">Order #{pollingOrderId.slice(-8)}</div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Order Status Card - shown when order is in terminal state */}
+                {currentOrder && ['PAID', 'FAILED', 'CANCELLED', 'DELIVERED', 'CONFIRMED', 'PREPARING', 'READY'].includes(currentOrder.status) && (
                   <OrderStatusCard
                     orderId={currentOrder.id}
                     status={currentOrder.status}
@@ -547,7 +730,7 @@ export default function Widget({
                     onRefresh={async () => {
                       if (currentOrder.id) {
                         try {
-                          const response = await apiClient.current.getOrder(currentOrder.id)
+                          const response = await apiClient.current.getPublicOrder(restaurantSlug, currentOrder.id)
                           if (response.success && response.data) {
                             setCurrentOrder(response.data as Order)
                           }
@@ -557,51 +740,47 @@ export default function Widget({
                       }
                     }}
                     onCancel={['PAID', 'CONFIRMED'].includes(currentOrder.status) ? handleCancelOrder : undefined}
+                    onDone={() => {
+                      // Clear order state and show menu again
+                      setCurrentOrder(null)
+                      setPollingOrderId(null)
+                      setPaymentData(null)
+                      
+                      // Add a thank you message
+                      const thankYouMessage: Message = {
+                        id: Date.now().toString(),
+                        text: '👋 Thank you for your order! Feel free to browse our menu again.',
+                        sender: 'bot',
+                        timestamp: new Date(),
+                      }
+                      setMessages((prev) => [...prev, thankYouMessage])
+                    }}
                     isRefreshing={loading}
                   />
                 )}
-
-                {/* Payment Link - shown when waiting for payment */}
-                {paymentData?.paymentLink && !currentOrder?.status && (
-                  <PaymentLink
-                    paymentLink={paymentData.paymentLink}
-                    amount={paymentData.amount}
-                    orderId={paymentData.orderId}
-                    onConfirmPayment={handleConfirmPayment}
-                    onCancelOrder={handleCancelOrder}
-                  />
-                )}
-
-                {/* Order Processing Indicator - shown while polling */}
-                {pollingOrderId && !currentOrder?.status && !paymentData?.paymentLink && (
-                  <div className="order-processing">
-                    <div className="spinner"></div>
-                    <div className="processing-text">
-                      <div className="processing-title">Waiting for payment...</div>
-                      <div className="processing-subtitle">Order #{pollingOrderId.slice(-8)}</div>
-                    </div>
-                  </div>
-                )}
                 
                 {/* Menu Item Cards */}
-                {cards.length > 0 && !pollingOrderId && !paymentData && (
+                {cards.length > 0 && !pollingOrderId && !paymentData && !currentOrder && (
                   <div className="cards-container">
-                    {cards.map((card, index) => (
-                      <MenuItemCard
-                        key={index}
-                        item={card}
-                        onAction={(action) => {
-                          console.log('Card action clicked:', action);
-                          const message = action.data ? JSON.stringify(action.data) : action.label;
-                          sendMessage(message);
-                        }}
-                      />
-                    ))}
+                    {cards.map((card, index) => {
+                      const quantity = getItemQuantity(card.id)
+                      console.log('Rendering card:', card.title, 'quantity:', quantity)
+                      return (
+                        <MenuItemCard
+                          key={index}
+                          item={card}
+                          currentQuantity={quantity}
+                          onAdd={() => handleAddItemToCart(card.id, card.title, card.price || 0)}
+                          onIncrement={() => handleIncrementItem(card.id)}
+                          onDecrement={() => handleDecrementItem(card.id)}
+                        />
+                      )
+                    })}
                   </div>
                 )}
                 
                 {/* Quick Replies */}
-                {quickReplies.length > 0 && !pollingOrderId && !paymentData && (
+                {quickReplies.length > 0 && !pollingOrderId && !paymentData && !currentOrder && (
                   <QuickReplies replies={quickReplies} onSelect={handleQuickReply} />
                 )}
                 

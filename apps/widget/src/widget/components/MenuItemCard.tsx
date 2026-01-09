@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import QuantityControl from './QuantityControl'
 
 interface MenuItemOption {
   id: string
@@ -28,10 +29,19 @@ interface MenuItemCardProps {
       data?: any
     }>
   }
-  onAction: (action: any) => void
+  currentQuantity?: number
+  onAdd: () => void
+  onIncrement: () => void
+  onDecrement: () => void
 }
 
-export default function MenuItemCard({ item, onAction }: MenuItemCardProps) {
+export default function MenuItemCard({ 
+  item, 
+  currentQuantity = 0,
+  onAdd,
+  onIncrement,
+  onDecrement 
+}: MenuItemCardProps) {
   const [showCustomizer, setShowCustomizer] = useState(false)
 
   const handleAddClick = () => {
@@ -40,25 +50,13 @@ export default function MenuItemCard({ item, onAction }: MenuItemCardProps) {
     if (item.options && item.options.length > 0) {
       setShowCustomizer(true)
     } else {
-      // No customization needed, add directly
-      onAction({
-        label: 'Add to cart',
-        intent: 'add_to_cart',
-        data: {
-          itemId: item.id,
-          quantity: 1,
-        }
-      })
+      onAdd()
     }
   }
 
-  const handleCustomizationComplete = (customization: any) => {
+  const handleCustomizationComplete = (_customization: any) => {
     setShowCustomizer(false)
-    onAction({
-      label: 'Add to cart',
-      intent: 'add_to_cart',
-      data: customization
-    })
+    onAdd() // Call onAdd after customization
   }
 
   return (
@@ -81,23 +79,23 @@ export default function MenuItemCard({ item, onAction }: MenuItemCardProps) {
         <div className="menu-card-content">
           <div className="menu-card-header">
             <h4 className="menu-card-title">{item.title}</h4>
-            {item.price !== undefined && (
-              <div className="menu-card-price">${item.price.toFixed(2)}</div>
-            )}
           </div>
           
           {item.description && (
             <p className="menu-card-description">{item.description}</p>
           )}
 
-          <button
-            onClick={handleAddClick}
-            className="menu-card-add-btn"
-            disabled={item.soldOut}
-            aria-label={`Add ${item.title} to cart`}
-          >
-            {item.soldOut ? '🚫 Sold Out' : '➕ Add'}
-          </button>
+          {item.price !== undefined && (
+            <div className="menu-card-price">${item.price.toFixed(2)}</div>
+          )}
+
+          <QuantityControl
+            quantity={currentQuantity}
+            onAdd={handleAddClick}
+            onIncrement={onIncrement}
+            onDecrement={onDecrement}
+            soldOut={item.soldOut}
+          />
         </div>
       </div>
 

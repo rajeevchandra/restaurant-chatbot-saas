@@ -72,6 +72,7 @@ export interface OrderDTO {
   total: number;
   notes?: string;
   items: OrderItemDTO[];
+  checkoutUrl?: string;
   createdAt: Date;
   updatedAt: Date;
 }

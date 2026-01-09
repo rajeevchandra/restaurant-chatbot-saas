@@ -15,7 +15,7 @@ start "Admin Dashboard" cmd /k "cd apps\admin && npm run dev"
 timeout /t 2 /nobreak >nul
 
 REM Start Widget (Port 3004)
-echo [3/3] Starting Widget on port 3004...
+echo [3/3] Starting Widget on port 3002...
 start "Widget" cmd /k "cd apps\widget && npm run dev"
 timeout /t 2 /nobreak >nul
 
@@ -26,7 +26,7 @@ echo ====================================
 echo.
 echo API Server:        http://localhost:3000
 echo Admin Dashboard:   http://localhost:3001
-echo Widget:            http://localhost:3004
+echo Widget:            http://localhost:3002
 echo.
 echo Press any key to close this window (services will keep running)...
 pause >nul

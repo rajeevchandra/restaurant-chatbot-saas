@@ -2,6 +2,7 @@ import { OrderStatus, Prisma } from '@prisma/client';
 import prisma from '../../../db/prisma';
 import { NotFoundError, ValidationError, ForbiddenError } from '../../../lib/errors';
 import logger from '../../../lib/logger';
+import { paymentsService } from '../../payments/v1/payments.service';
 import {
   CreateOrderDTO,
   OrderDTO,
@@ -105,7 +106,49 @@ export class OrdersService {
       'Order created'
     );
 
-    return this.mapOrderToDTO(order);
+    // Try to create payment intent for the order
+    try {
+      const paymentIntent = await paymentsService.createPaymentIntent(
+        restaurantId,
+        order.id,
+        {
+          amount: calculation.total,
+          currency: 'USD',
+          paymentMethod: 'STRIPE',
+        }
+      );
+
+      logger.info({ orderId: order.id, paymentIntentId: paymentIntent.id }, 'Payment intent created');
+
+      // Update order status to PAYMENT_PENDING
+      await prisma.order.update({
+        where: { id: order.id },
+        data: { status: 'PAYMENT_PENDING' },
+      });
+
+      // Add checkoutUrl to the order DTO
+      const orderDTO = this.mapOrderToDTO(order);
+      return {
+        ...orderDTO,
+        status: 'PAYMENT_PENDING' as OrderStatus,
+        checkoutUrl: paymentIntent.checkoutUrl,
+      };
+    } catch (error: any) {
+      logger.error(
+        { 
+          orderId: order.id, 
+          error: error.message,
+          stack: error.stack,
+          errorName: error.name,
+          errorDetails: error
+        }, 
+        'Payment intent creation failed - order created without payment link'
+      );
+      
+      // If payment config doesn't exist, mark order as needing manual payment
+      // and return without checkoutUrl
+      return this.mapOrderToDTO(order);
+    }
   }
 
   /**

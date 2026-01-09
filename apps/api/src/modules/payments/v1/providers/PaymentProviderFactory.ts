@@ -13,17 +13,31 @@ export class PaymentProviderFactory {
     logger.debug({
       msg: 'Creating payment provider',
       provider: config.provider,
+      providerType: typeof config.provider,
       restaurantId: config.restaurantId,
+      hasCredentials: !!config.credentials,
+    });
+
+    // DEBUG: Log enum values
+    logger.debug({
+      msg: 'Comparing provider values',
+      configProvider: config.provider,
+      stripeEnum: PaymentProvider.STRIPE,
+      squareEnum: PaymentProvider.SQUARE,
+      matches: config.provider === PaymentProvider.STRIPE,
     });
 
     switch (config.provider) {
       case PaymentProvider.STRIPE:
+        logger.debug('Factory: Creating StripeProvider');
         return new StripeProvider(config.restaurantId, config.credentials as any);
 
       case PaymentProvider.SQUARE:
+        logger.debug('Factory: Creating SquareProvider');
         return new SquareProvider(config.restaurantId, config.credentials as any);
 
       default:
+        logger.error({ provider: config.provider }, 'Unsupported payment provider - throwing error');
         throw new Error(`Unsupported payment provider: ${config.provider}`);
     }
   }

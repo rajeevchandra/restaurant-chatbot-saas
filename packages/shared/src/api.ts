@@ -129,8 +129,21 @@ export class ApiClient {
     });
   }
 
+  async getPublicOrder(restaurantSlug: string, orderId: string) {
+    return this.request(`/api/v1/public/restaurants/${restaurantSlug}/orders/${orderId}`, {
+      method: 'GET',
+    });
+  }
+
   async createOrder(data: any) {
     return this.request('/api/orders', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async createPublicOrder(restaurantSlug: string, data: any) {
+    return this.request(`/api/v1/public/restaurants/${restaurantSlug}/orders`, {
       method: 'POST',
       body: JSON.stringify(data),
     });
@@ -146,6 +159,13 @@ export class ApiClient {
   async cancelOrder(id: string) {
     return this.request(`/api/orders/${id}/cancel`, {
       method: 'POST',
+    });
+  }
+
+  async cancelPublicOrder(restaurantSlug: string, orderId: string, reason?: string) {
+    return this.request(`/api/v1/public/restaurants/${restaurantSlug}/orders/${orderId}/cancel`, {
+      method: 'POST',
+      body: reason ? JSON.stringify({ reason }) : undefined,
     });
   }
 

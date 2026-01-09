@@ -147,6 +147,16 @@ export class BotEngine {
       return 'cancel_order';
     }
 
+    // Cancel checkout / go back to shopping
+    if (context.state === 'CHECKOUT' && (
+      lowerMessage === 'cancel' || 
+      lowerMessage.includes('continue shopping') ||
+      lowerMessage.includes('go back') ||
+      lowerMessage.includes('back to menu')
+    )) {
+      return 'browse_menu';
+    }
+
     // View cart intent
     if (
       lowerMessage.includes('cart') ||
@@ -309,12 +319,13 @@ What would you like to do?`,
     context: BotContext
   ): Promise<any> {
     if (intent === 'browse_menu') {
-      const menu = await this.getMenu();
+      const categories = await this.getMenuCategories();
+      const categoryNames = categories.map(cat => cat.name);
+      
       return {
         botResponse: {
-          text: "Welcome! Here's our menu. Click on any item to add it to your cart.",
-          quickReplies: ['View Categories', 'My Cart'],
-          cards: this.formatMenuCards(menu),
+          text: "Welcome! Browse our menu by category:",
+          quickReplies: [...categoryNames, 'My Cart'],
         },
         newState: 'BROWSING_MENU' as BotSessionState,
       };
@@ -371,13 +382,31 @@ What would you like to do?`,
       };
     }
 
-    // Default: show menu
-    const menu = await this.getMenu();
+    // Check if user selected a category
+    const categories = await this.getMenuCategories();
+    const selectedCategory = categories.find(cat => 
+      message.toLowerCase().includes(cat.name.toLowerCase())
+    );
+
+    if (selectedCategory) {
+      const categoryItems = await this.getMenuByCategory(selectedCategory.id);
+      const categoryNames = categories.map(cat => cat.name);
+      
+      return {
+        botResponse: {
+          text: `${selectedCategory.name}:`,
+          quickReplies: [...categoryNames, 'My Cart', 'Checkout'],
+          cards: this.formatMenuCards([{ ...selectedCategory, menuItems: categoryItems }]),
+        },
+      };
+    }
+
+    // Default: show category buttons
+    const categoryNames = categories.map(cat => cat.name);
     return {
       botResponse: {
-        text: "Browse our menu and let me know what you'd like!",
-        quickReplies: ['My Cart', 'Checkout'],
-        cards: this.formatMenuCards(menu),
+        text: "Browse our menu by category:",
+        quickReplies: [...categoryNames, 'My Cart', 'Checkout'],
       },
     };
   }
@@ -422,12 +451,13 @@ What would you like to do?`,
     }
 
     if (intent === 'browse_menu') {
-      const menu = await this.getMenu();
+      const categories = await this.getMenuCategories();
+      const categoryNames = categories.map(cat => cat.name);
+      
       return {
         botResponse: {
-          text: 'Browse more items to add!',
-          quickReplies: ['My Cart', 'Checkout'],
-          cards: this.formatMenuCards(menu),
+          text: 'Browse our menu by category:',
+          quickReplies: [...categoryNames, 'My Cart', 'Checkout'],
         },
         newState: 'BROWSING_MENU' as BotSessionState,
       };
@@ -444,6 +474,28 @@ What would you like to do?`,
     message: string,
     context: BotContext
   ): Promise<any> {
+    // Allow user to navigate back to menu/browsing
+    if (intent === 'browse_menu') {
+      const categories = await this.getMenuCategories();
+      const categoryNames = categories.map(cat => cat.name);
+      
+      return {
+        botResponse: {
+          text: "Sure! Browse our menu by category:",
+          quickReplies: [...categoryNames, 'My Cart', 'Checkout'],
+        },
+        newState: 'BROWSING_MENU' as BotSessionState,
+      };
+    }
+
+    // Allow user to view cart
+    if (intent === 'view_cart') {
+      return {
+        botResponse: this.formatCartResponse(context),
+        newState: 'BUILDING_CART' as BotSessionState,
+      };
+    }
+
     if (intent === 'provide_contact' || intent === 'confirm_order') {
       // Parse contact info from message
       const contactInfo = this.parseContactInfo(message);
@@ -769,7 +821,7 @@ What would you like to do?`,
     return {
       botResponse: {
         text: `${statusEmoji} Order #${order.id.slice(0, 8)}\nStatus: ${order.status}\nTotal: $${Number(order.total).toFixed(2)}\nItems: ${order.items.length}`,
-        quickReplies: order.status === 'PENDING' ? ['Pay Now', 'Cancel Order', 'View Menu'] : ['New Order', 'View Menu'],
+        quickReplies: order.status === 'PAYMENT_PENDING' ? ['Pay Now', 'Cancel Order', 'View Menu'] : ['New Order', 'View Menu'],
       },
     };
   }
@@ -946,6 +998,30 @@ What would you like to do?`,
     });
 
     return categories;
+  }
+
+  // Helper: Get menu categories only
+  private async getMenuCategories() {
+    const categories = await prisma.menuCategory.findMany({
+      where: { restaurantId: this.restaurantId, isActive: true },
+      orderBy: { displayOrder: 'asc' },
+    });
+
+    return categories;
+  }
+
+  // Helper: Get menu items by category
+  private async getMenuByCategory(categoryId: string) {
+    const items = await prisma.menuItem.findMany({
+      where: { 
+        categoryId: categoryId,
+        isAvailable: true 
+      },
+      include: { inventory: true },
+      orderBy: { displayOrder: 'asc' },
+    });
+
+    return items;
   }
 
   // Helper: Format menu as cards

@@ -10,12 +10,12 @@ import { OrderStatus } from '@prisma/client';
 // ========================================
 
 const selectedOptionSchema = z.object({
-  optionId: z.string().uuid('Invalid option ID'),
-  valueIds: z.array(z.string().uuid('Invalid value ID')).min(1, 'At least one value must be selected'),
+  optionId: z.string().min(1, 'Option ID is required'),
+  valueIds: z.array(z.string().min(1, 'Value ID is required')).min(1, 'At least one value must be selected'),
 });
 
 const createOrderItemSchema = z.object({
-  menuItemId: z.string().uuid('Invalid menu item ID'),
+  menuItemId: z.string().min(1, 'Menu item ID is required'),
   quantity: z.number()
     .int('Quantity must be an integer')
     .min(1, 'Quantity must be at least 1')
@@ -58,7 +58,7 @@ export const getPublicOrderSchema = z.object({
     slug: z.string()
       .min(1, 'Restaurant slug is required')
       .regex(/^[a-z0-9-]+$/, 'Invalid slug format'),
-    orderId: z.string().uuid('Invalid order ID'),
+    orderId: z.string().min(1, 'Order ID is required'),
   }),
 });
 
@@ -67,7 +67,7 @@ export const cancelPublicOrderSchema = z.object({
     slug: z.string()
       .min(1, 'Restaurant slug is required')
       .regex(/^[a-z0-9-]+$/, 'Invalid slug format'),
-    orderId: z.string().uuid('Invalid order ID'),
+    orderId: z.string().min(1, 'Order ID is required'),
   }),
   body: z.object({
     reason: z.string()

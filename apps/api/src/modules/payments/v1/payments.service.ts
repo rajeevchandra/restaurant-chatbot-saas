@@ -188,8 +188,22 @@ export class PaymentsService {
       throw new AppError(400, 'Payment provider not configured for this restaurant');
     }
 
+    // DEBUG logging
+    logger.debug({ 
+      configProvider: config.provider, 
+      providerType: typeof config.provider,
+      hasCredentials: !!config.credentials,
+      restaurantId: config.restaurantId 
+    }, 'Payment config before factory');
+
     // 3. Create provider
     const provider = PaymentProviderFactory.createProvider(config);
+    
+    // DEBUG: Check if provider was created
+    logger.debug({ 
+      providerCreated: !!provider, 
+      providerType: provider?.constructor?.name 
+    }, 'Provider after factory');
 
     // 4. Create checkout session
     const restaurant = await prisma.restaurant.findUnique({
@@ -527,3 +541,5 @@ export class PaymentsService {
     };
   }
 }
+
+export const paymentsService = new PaymentsService();
