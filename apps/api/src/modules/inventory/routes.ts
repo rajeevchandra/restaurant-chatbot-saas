@@ -6,25 +6,97 @@ import { updateInventorySchema, toggleSoldOutSchema } from '@restaurant-saas/sha
 
 const router = Router();
 
+/**
+ * @swagger
+ * /api/inventory:
+ *   get:
+ *     summary: Get all inventory items for the restaurant
+ *     tags:
+ *       - Inventory
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Success. Returns inventory items.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Internal server error
+ */
 // Get all inventory
 router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
-  console.log('INVENTORY ROUTE: about to query inventory. req.restaurantId =', req.restaurantId);
+  console.log('INVENTORY ROUTE: handler entered. req.restaurantId =', req.restaurantId, 'req.user =', req.user);
   try {
+    console.log('INVENTORY ROUTE: about to call prisma.inventory.findMany');
     const inventory = await prisma.inventory.findMany({
       where: { restaurantId: req.restaurantId },
       include: {
         menuItem: { select: { name: true, isAvailable: true } },
       },
     });
-    console.log('INVENTORY ROUTE: query complete, found', inventory.length, 'items');
+    console.log('INVENTORY ROUTE: prisma.inventory.findMany resolved. inventory:', Array.isArray(inventory) ? inventory.length : inventory);
     res.json({ success: true, data: inventory });
+    console.log('INVENTORY ROUTE: response sent successfully');
   } catch (err) {
     console.error('INVENTORY ROUTE: error during query', err);
-    res.status(500).json({ error: 'Failed to fetch inventory', details: err?.message });
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Failed to fetch inventory', details: err?.message });
+      console.log('INVENTORY ROUTE: error response sent');
+    } else {
+      console.log('INVENTORY ROUTE: headers already sent after error');
+    }
   }
+  console.log('INVENTORY ROUTE: handler exit');
 });
 
 // Update inventory quantity and threshold
+/**
+ * @swagger
+ * /api/inventory/{menuItemId}:
+ *   patch:
+ *     summary: Update inventory quantity and threshold for a menu item
+ *     tags:
+ *       - Inventory
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: menuItemId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               quantity:
+ *                 type: integer
+ *               lowStockThreshold:
+ *                 type: integer
+ *     responses:
+ *       200:
+ *         description: Success. Returns updated inventory.
+ *       404:
+ *         description: Menu item not found
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Internal server error
+ */
 router.patch(
   '/:menuItemId',
   authenticate,
@@ -61,6 +133,40 @@ router.patch(
 );
 
 // Toggle sold out status
+/**
+ * @swagger
+ * /api/inventory/{menuItemId}/sold-out:
+ *   patch:
+ *     summary: Toggle sold out status for a menu item
+ *     tags:
+ *       - Inventory
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: menuItemId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               isSoldOut:
+ *                 type: boolean
+ *     responses:
+ *       200:
+ *         description: Success. Returns updated inventory.
+ *       404:
+ *         description: Menu item not found
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Internal server error
+ */
 router.patch(
   '/:menuItemId/sold-out',
   authenticate,

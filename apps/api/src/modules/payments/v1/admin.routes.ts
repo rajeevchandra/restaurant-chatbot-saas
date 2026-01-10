@@ -120,10 +120,18 @@ router.put(
  */
 router.get(
   '/config',
+  (req, res, next) => {
+    console.log('[ADMIN PAYMENTS ROUTE] /config handler TOP', {
+      method: req.method,
+      url: req.originalUrl,
+      headers: req.headers
+    });
+    next();
+  },
   apiLimiter,
-  requireAuth,
-  attachTenant,
-  requireTenant,
+  requireAuth(),
+  attachTenant(),
+  requireTenant(),
   controller.getPaymentConfig.bind(controller)
 );
 

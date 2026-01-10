@@ -16,6 +16,7 @@ import {
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
 import { logout } from '@/lib/auth';
+import { useAutoLogout } from '@/hooks/useAutoLogout';
 
 const navGroups = [
   {
@@ -42,6 +43,7 @@ const navGroups = [
 ];
 
 export default function Sidebar() {
+    useAutoLogout();
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
 

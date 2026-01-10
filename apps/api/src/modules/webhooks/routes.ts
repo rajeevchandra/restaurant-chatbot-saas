@@ -72,6 +72,27 @@ async function recordWebhookEvent(
 }
 
 // Stripe webhook
+/**
+ * @swagger
+ * /api/webhooks/stripe:
+ *   post:
+ *     summary: Stripe webhook endpoint
+ *     tags:
+ *       - Webhooks
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *     responses:
+ *       200:
+ *         description: Webhook received
+ *       400:
+ *         description: Bad request
+ *       500:
+ *         description: Webhook processing failed
+ */
 router.post('/stripe', async (req: Request, res: Response) => {
   console.log('\n🔔 STRIPE WEBHOOK ROUTE HIT\n');
   try {
@@ -228,6 +249,27 @@ router.post('/stripe', async (req: Request, res: Response) => {
 });
 
 // Square webhook
+/**
+ * @swagger
+ * /api/webhooks/square:
+ *   post:
+ *     summary: Square webhook endpoint
+ *     tags:
+ *       - Webhooks
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *     responses:
+ *       200:
+ *         description: Webhook received
+ *       400:
+ *         description: Bad request
+ *       500:
+ *         description: Webhook processing failed
+ */
 router.post('/square', async (req: Request, res: Response) => {
   try {
     const signature = req.headers['x-square-signature'] as string;

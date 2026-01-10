@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { formatCurrency, formatDateTime } from '@/lib/utils';
 import { getApiClient } from '@/lib/apiClient';
+import { useOrders } from '@/context/OrdersContext';
 
 type OrderStatus = 'CREATED' | 'PAID' | 'ACCEPTED' | 'PREPARING' | 'READY' | 'COMPLETED' | 'CANCELLED';
 type OrderType = 'PICKUP' | 'DELIVERY';
@@ -70,32 +71,14 @@ const ALLOWED_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
 };
 
 export default function OrdersPage() {
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { orders, loading, refresh } = useOrders();
   const [activeTab, setActiveTab] = useState<OrderStatus | 'ALL'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [orderTypeFilter, setOrderTypeFilter] = useState<OrderType | ''>('');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
 
-  useEffect(() => {
-    loadOrders();
-  }, []);
-
-  const loadOrders = async () => {
-    setLoading(true);
-    try {
-      const response = await getApiClient().getOrders({ limit: 100 });
-      if (response.success && response.data) {
-        const fetchedOrders = response.data.items || response.data;
-        setOrders(fetchedOrders);
-      }
-    } catch (error) {
-      console.error('Failed to load orders:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // No need to fetch orders here, handled by context
 
   const filteredOrders = orders.filter((order) => {
     if (activeTab !== 'ALL' && order.status !== activeTab) return false;
@@ -112,34 +95,17 @@ export default function OrdersPage() {
   });
 
   const updateOrderStatus = async (orderId: string, newStatus: OrderStatus) => {
-    // 🚀 OPTIMIZED: Optimistic UI update
-    const previousOrders = [...orders];
-    
-    // Update UI immediately
-    setOrders(prevOrders => 
-      prevOrders.map(order => 
-        order.id === orderId ? { ...order, status: newStatus } : order
-      )
-    );
-
     try {
       const response = await getApiClient().updateOrderStatus(orderId, newStatus);
       if (response.success) {
-        // Confirm update with server data
-        await loadOrders();
-        
-        // Update selected order if it's the one being changed
+        await refresh();
         if (selectedOrder?.id === orderId) {
           setSelectedOrder(null);
         }
       } else {
-        // Revert on failure
-        setOrders(previousOrders);
         alert('Failed to update order status');
       }
     } catch (error) {
-      // Revert on error
-      setOrders(previousOrders);
       console.error('Failed to update order status:', error);
       alert('Failed to update order status');
     }
@@ -149,7 +115,7 @@ export default function OrdersPage() {
     try {
       const response = await getApiClient().cancelOrder(orderId);
       if (response.success) {
-        await loadOrders();
+        await refresh();
         setShowCancelDialog(false);
         setSelectedOrder(null);
       } else {
@@ -194,7 +160,7 @@ export default function OrdersPage() {
           description="Manage and track all customer orders"
           actions={
             <button
-              onClick={loadOrders}
+              onClick={refresh}
               className="flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
             >
               <RefreshCw className="h-4 w-4" />

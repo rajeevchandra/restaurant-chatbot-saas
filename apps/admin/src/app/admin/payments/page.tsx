@@ -1,4 +1,8 @@
+
 'use client';
+
+// Handle provider selection
+// (The function definition should be inside the component, not at the top level)
 
 import { useState, useEffect } from 'react';
 import { PageHeader } from '@/components/PageHeader';
@@ -21,35 +25,40 @@ import { getApiClient } from '@/lib/apiClient';
 type Step = 1 | 2 | 3 | 4;
 
 export default function PaymentsPage() {
+  // ...existing code...
+  const handleProviderSelect = (provider: 'STRIPE' | 'SQUARE') => {
+    setSelectedProvider(provider);
+    setCurrentStep(2);
+    setIsConfigured(false);
+    setCredentials({ publicKey: '', secretKey: '', webhookSecret: '' });
+    setConnectionStatus('idle');
+  };
   // Mock user role - in real app, fetch from auth context
   const userRole = 'OWNER'; // 'OWNER' | 'ADMIN' | 'STAFF'
-
   const [currentStep, setCurrentStep] = useState<Step>(1);
   const [selectedProvider, setSelectedProvider] = useState<'STRIPE' | 'SQUARE' | null>(null);
   const [isConfigured, setIsConfigured] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
   const [loading, setLoading] = useState(true);
-
-  // Form state
-  const [credentials, setCredentials] = useState({
-    publicKey: '',
-    secretKey: '',
-    webhookSecret: '',
-  });
-
-  const [showKeys, setShowKeys] = useState({
-    publicKey: false,
-    secretKey: false,
-    webhookSecret: false,
-  });
-
+  const [credentials, setCredentials] = useState({ publicKey: '', secretKey: '', webhookSecret: '' });
+  const [showKeys, setShowKeys] = useState({ publicKey: false, secretKey: false, webhookSecret: false });
   const [copied, setCopied] = useState(false);
-
   const webhookUrl = `https://your-domain.com/api/webhooks/${selectedProvider?.toLowerCase()}`;
-
   const canProceedToStep2 = selectedProvider !== null;
   const canProceedToStep3 = credentials.publicKey && credentials.secretKey;
   const canTestConnection = credentials.webhookSecret && currentStep >= 3;
+
+  // Function to copy the webhook URL to clipboard
+  const copyWebhookUrl = async () => {
+    try {
+      await navigator.clipboard.writeText(webhookUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch (err) {
+      setCopied(false);
+      alert('Failed to copy webhook URL');
+    }
+  };
 
   useEffect(() => {
     loadPaymentConfig();
@@ -84,7 +93,6 @@ export default function PaymentsPage() {
         publicKey: credentials.publicKey,
         secretKey: credentials.secretKey,
       });
-
       if (response.success) {
         setCurrentStep(3);
       } else {
@@ -120,13 +128,7 @@ export default function PaymentsPage() {
     }
   };
 
-  const steps = [
-    { number: 1, title: 'Select Provider', completed: currentStep > 1 },
-    { number: 2, title: 'Enter Credentials', completed: currentStep > 2 },
-    { number: 3, title: 'Webhook Setup', completed: currentStep > 3 },
-    { number: 4, title: 'Test Connection', completed: connectionStatus === 'success' },
-  ];
-
+  const steps = [{ number: 1, title: 'Select Provider', completed: currentStep > 1 }, { number: 2, title: 'Enter Credentials', completed: currentStep > 2 }, { number: 3, title: 'Webhook Setup', completed: currentStep > 3 }, { number: 4, title: 'Test Connection', completed: connectionStatus === 'success' }];
   return (
     <div className="space-y-8">
       <PageHeader
@@ -246,164 +248,181 @@ export default function PaymentsPage() {
 
       {/* Step 2: Enter Credentials */}
       {currentStep >= 2 && selectedProvider && userRole === 'OWNER' && (
-        <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-          <div className="mb-6 flex items-start gap-3">
-            <Shield className="h-5 w-5 text-blue-600" />
-            <div>
-              <h2 className="text-lg font-semibold text-gray-900">
-                Configure {selectedProvider} Credentials
-              </h2>
-              <p className="mt-1 text-sm text-gray-600">
-                Your API keys are encrypted and stored securely. We never display stored credentials.
-              </p>
-            </div>
+        <>
+          <div className="mb-4">
+            <button
+              type="button"
+              className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
+              onClick={() => {
+                setCurrentStep(1);
+                setSelectedProvider(null);
+                setIsConfigured(false);
+                setCredentials({ publicKey: '', secretKey: '', webhookSecret: '' });
+                setConnectionStatus('idle');
+              }}
+            >
+              &larr; Back to provider selection
+            </button>
           </div>
-
-          {isConfigured && (
-            <div className="mb-6 flex items-center gap-3 rounded-lg border border-green-200 bg-green-50 p-4">
-              <CheckCircle2 className="h-5 w-5 text-green-600" />
-              <div className="flex-1">
-                <p className="text-sm font-medium text-green-900">Connected</p>
-                <p className="text-sm text-green-700">
-                  Your {selectedProvider} account is connected and active.
+          <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+            <div className="mb-6 flex items-start gap-3">
+              <Shield className="h-5 w-5 text-blue-600" />
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900">
+                  Configure {selectedProvider} Credentials
+                </h2>
+                <p className="mt-1 text-sm text-gray-600">
+                  Your API keys are encrypted and stored securely. We never display stored credentials.
                 </p>
               </div>
-              <StatusPill label="Active" variant="success" />
             </div>
-          )}
 
-          <div className="space-y-4">
-            {selectedProvider === 'STRIPE' ? (
-              <>
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-gray-700">
-                    Publishable Key <span className="text-red-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <input
-                      type={showKeys.publicKey ? 'text' : 'password'}
-                      value={credentials.publicKey}
-                      onChange={(e) => setCredentials({ ...credentials, publicKey: e.target.value })}
-                      placeholder={isConfigured ? '••••••••••••••••' : 'pk_live_...'}
-                      disabled={isConfigured}
-                      className="w-full rounded-lg border border-gray-300 py-2 pl-4 pr-12 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:bg-gray-100"
-                    />
-                    {!isConfigured && (
-                      <button
-                        type="button"
-                        onClick={() => setShowKeys({ ...showKeys, publicKey: !showKeys.publicKey })}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                      >
-                        {showKeys.publicKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      </button>
-                    )}
-                  </div>
-                  <p className="mt-1 text-xs text-gray-500">
-                    Find this in your{' '}
-                    <a href="#" className="text-blue-600 hover:underline">
-                      Stripe Dashboard
-                    </a>
+            {isConfigured && (
+              <div className="mb-6 flex items-center gap-3 rounded-lg border border-green-200 bg-green-50 p-4">
+                <CheckCircle2 className="h-5 w-5 text-green-600" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-green-900">Connected</p>
+                  <p className="text-sm text-green-700">
+                    Your {selectedProvider} account is connected and active.
                   </p>
                 </div>
-
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-gray-700">
-                    Secret Key <span className="text-red-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <input
-                      type={showKeys.secretKey ? 'text' : 'password'}
-                      value={credentials.secretKey}
-                      onChange={(e) => setCredentials({ ...credentials, secretKey: e.target.value })}
-                      placeholder={isConfigured ? '••••••••••••••••' : 'sk_live_...'}
-                      disabled={isConfigured}
-                      className="w-full rounded-lg border border-gray-300 py-2 pl-4 pr-12 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:bg-gray-100"
-                    />
-                    {!isConfigured && (
-                      <button
-                        type="button"
-                        onClick={() => setShowKeys({ ...showKeys, secretKey: !showKeys.secretKey })}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                      >
-                        {showKeys.secretKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      </button>
-                    )}
-                  </div>
-                  <p className="mt-1 text-xs text-gray-500">Keep this secure - never share your secret key</p>
-                </div>
-              </>
-            ) : (
-              <>
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-gray-700">
-                    Application ID <span className="text-red-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <input
-                      type={showKeys.publicKey ? 'text' : 'password'}
-                      value={credentials.publicKey}
-                      onChange={(e) => setCredentials({ ...credentials, publicKey: e.target.value })}
-                      placeholder={isConfigured ? '••••••••••••••••' : 'sq0idp-...'}
-                      disabled={isConfigured}
-                      className="w-full rounded-lg border border-gray-300 py-2 pl-4 pr-12 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:bg-gray-100"
-                    />
-                    {!isConfigured && (
-                      <button
-                        type="button"
-                        onClick={() => setShowKeys({ ...showKeys, publicKey: !showKeys.publicKey })}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                      >
-                        {showKeys.publicKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      </button>
-                    )}
-                  </div>
-                  <p className="mt-1 text-xs text-gray-500">
-                    Find this in your{' '}
-                    <a href="#" className="text-blue-600 hover:underline">
-                      Square Developer Dashboard
-                    </a>
-                  </p>
-                </div>
-
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-gray-700">
-                    Access Token <span className="text-red-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <input
-                      type={showKeys.secretKey ? 'text' : 'password'}
-                      value={credentials.secretKey}
-                      onChange={(e) => setCredentials({ ...credentials, secretKey: e.target.value })}
-                      placeholder={isConfigured ? '••••••••••••••••' : 'EAAAl...'}
-                      disabled={isConfigured}
-                      className="w-full rounded-lg border border-gray-300 py-2 pl-4 pr-12 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:bg-gray-100"
-                    />
-                    {!isConfigured && (
-                      <button
-                        type="button"
-                        onClick={() => setShowKeys({ ...showKeys, secretKey: !showKeys.secretKey })}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                      >
-                        {showKeys.secretKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      </button>
-                    )}
-                  </div>
-                  <p className="mt-1 text-xs text-gray-500">Keep this secure - never share your access token</p>
-                </div>
-              </>
+                <StatusPill label="Active" variant="success" />
+              </div>
             )}
 
-            {!isConfigured && (
-              <button
-                onClick={handleSaveCredentials}
-                disabled={!canProceedToStep3}
-                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-300"
-              >
-                Continue to Webhook Setup
-              </button>
-            )}
+            <div className="space-y-4">
+              {selectedProvider === 'STRIPE' ? (
+                <>
+                  <div>
+                    <label className="mb-2 block text-sm font-medium text-gray-700">
+                      Publishable Key <span className="text-red-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showKeys.publicKey ? 'text' : 'password'}
+                        value={credentials.publicKey}
+                        onChange={(e) => setCredentials({ ...credentials, publicKey: e.target.value })}
+                        placeholder={isConfigured ? '••••••••••••••••' : 'pk_live_...'}
+                        disabled={isConfigured}
+                        className="w-full rounded-lg border border-gray-300 py-2 pl-4 pr-12 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:bg-gray-100"
+                      />
+                      {!isConfigured && (
+                        <button
+                          type="button"
+                          onClick={() => setShowKeys({ ...showKeys, publicKey: !showKeys.publicKey })}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                        >
+                          {showKeys.publicKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </button>
+                      )}
+                    </div>
+                    <p className="mt-1 text-xs text-gray-500">
+                      Find this in your{' '}
+                      <a href="#" className="text-blue-600 hover:underline">
+                        Stripe Dashboard
+                      </a>
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="mb-2 block text-sm font-medium text-gray-700">
+                      Secret Key <span className="text-red-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showKeys.secretKey ? 'text' : 'password'}
+                        value={credentials.secretKey}
+                        onChange={(e) => setCredentials({ ...credentials, secretKey: e.target.value })}
+                        placeholder={isConfigured ? '••••••••••••••••' : 'sk_live_...'}
+                        disabled={isConfigured}
+                        className="w-full rounded-lg border border-gray-300 py-2 pl-4 pr-12 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:bg-gray-100"
+                      />
+                      {!isConfigured && (
+                        <button
+                          type="button"
+                          onClick={() => setShowKeys({ ...showKeys, secretKey: !showKeys.secretKey })}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                        >
+                          {showKeys.secretKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </button>
+                      )}
+                    </div>
+                    <p className="mt-1 text-xs text-gray-500">Keep this secure - never share your secret key</p>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div>
+                    <label className="mb-2 block text-sm font-medium text-gray-700">
+                      Application ID <span className="text-red-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showKeys.publicKey ? 'text' : 'password'}
+                        value={credentials.publicKey}
+                        onChange={(e) => setCredentials({ ...credentials, publicKey: e.target.value })}
+                        placeholder={isConfigured ? '••••••••••••••••' : 'sq0idp-...'}
+                        disabled={isConfigured}
+                        className="w-full rounded-lg border border-gray-300 py-2 pl-4 pr-12 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:bg-gray-100"
+                      />
+                      {!isConfigured && (
+                        <button
+                          type="button"
+                          onClick={() => setShowKeys({ ...showKeys, publicKey: !showKeys.publicKey })}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                        >
+                          {showKeys.publicKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </button>
+                      )}
+                    </div>
+                    <p className="mt-1 text-xs text-gray-500">
+                      Find this in your{' '}
+                      <a href="#" className="text-blue-600 hover:underline">
+                        Square Developer Dashboard
+                      </a>
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="mb-2 block text-sm font-medium text-gray-700">
+                      Access Token <span className="text-red-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showKeys.secretKey ? 'text' : 'password'}
+                        value={credentials.secretKey}
+                        onChange={(e) => setCredentials({ ...credentials, secretKey: e.target.value })}
+                        placeholder={isConfigured ? '••••••••••••••••' : 'EAAAl...'}
+                        disabled={isConfigured}
+                        className="w-full rounded-lg border border-gray-300 py-2 pl-4 pr-12 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:bg-gray-100"
+                      />
+                      {!isConfigured && (
+                        <button
+                          type="button"
+                          onClick={() => setShowKeys({ ...showKeys, secretKey: !showKeys.secretKey })}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                        >
+                          {showKeys.secretKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </button>
+                      )}
+                    </div>
+                    <p className="mt-1 text-xs text-gray-500">Keep this secure - never share your access token</p>
+                  </div>
+                </>
+              )}
+
+              {!isConfigured && (
+                <button
+                  onClick={handleSaveCredentials}
+                  disabled={!canProceedToStep3}
+                  className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-300"
+                >
+                  Continue to Webhook Setup
+                </button>
+              )}
+            </div>
           </div>
-        </div>
+        </>
       )}
 
       {/* Step 3: Webhook Setup */}

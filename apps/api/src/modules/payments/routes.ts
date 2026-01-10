@@ -8,21 +8,97 @@ import { encryptSecret, decryptSecret } from '../../utils/crypto';
 
 const router = Router();
 
+/**
+ * @swagger
+ * /api/v1/admin/payments/config:
+ *   get:
+ *     summary: Get active payment configuration for the restaurant
+ *     tags:
+ *       - Payments
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Success. Returns active payment config(s).
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: string
+ *                       provider:
+ *                         type: string
+ *                       isActive:
+ *                         type: boolean
+ *                       publicKey:
+ *                         type: string
+ *                       createdAt:
+ *                         type: string
+ *                         format: date-time
+ *                       updatedAt:
+ *                         type: string
+ *                         format: date-time
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Internal server error
+ */
 // Get payment config
 router.get('/config', authenticate, async (req: AuthRequest, res: Response) => {
-  const config = await prisma.restaurantPaymentConfig.findMany({
-    where: { restaurantId: req.restaurantId, isActive: true },
-    select: {
-      id: true,
-      provider: true,
-      isActive: true,
-      publicKey: true,
-      createdAt: true,
-      updatedAt: true,
-    },
-  });
-
-  res.json({ success: true, data: config });
+  try {
+    console.log('[PAYMENTS] /config handler START', {
+      method: req.method,
+      url: req.originalUrl,
+      restaurantId: req.restaurantId,
+      user: req.user,
+      headers: req.headers
+    });
+    if (!req.restaurantId) {
+      console.log('[PAYMENTS] /config missing restaurantId');
+      return res.status(401).json({ success: false, error: 'Missing restaurantId in auth context' });
+    }
+    const query = {
+      where: { restaurantId: req.restaurantId, isActive: true },
+      select: {
+        id: true,
+        provider: true,
+        isActive: true,
+        publicKey: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    };
+    console.log('[PAYMENTS] /config about to query prisma.restaurantPaymentConfig.findMany', { query });
+    let config;
+    try {
+      config = await prisma.restaurantPaymentConfig.findMany(query);
+      console.log('[PAYMENTS] /config prisma query RESULT', {
+        count: Array.isArray(config) ? config.length : null,
+        result: config
+      });
+    } catch (dbError) {
+      console.error('[PAYMENTS] /config PRISMA ERROR', dbError);
+      throw dbError;
+    }
+    res.json({ success: true, data: config });
+    console.log('[PAYMENTS] /config RESPONSE SENT', { response: { success: true, data: config } });
+  } catch (error) {
+    console.error('[PAYMENTS] /config ROUTE ERROR:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ success: false, error: 'Internal server error' });
+      console.log('[PAYMENTS] /config ERROR RESPONSE SENT');
+    } else {
+      console.log('[PAYMENTS] /config HEADERS ALREADY SENT AFTER ERROR');
+    }
+  }
 });
 
 // Update payment config

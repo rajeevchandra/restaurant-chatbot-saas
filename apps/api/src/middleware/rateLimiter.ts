@@ -13,11 +13,30 @@ export const apiLimiter = rateLimit({
   message: 'Too many requests from this IP, please try again later',
   standardHeaders: true,
   legacyHeaders: false,
-  handler: (req: Request, res: Response) => {
+  handler: (req: Request, res: Response, next: NextFunction) => {
+    console.log('API LIMITER: START', {
+      method: req.method,
+      path: req.path,
+      url: req.originalUrl,
+      headers: req.headers
+    });
     throw new AppError(429, 'Too many requests, please try again later', 'RATE_LIMIT_EXCEEDED');
   },
 });
 
+
+export function apiLimiterWithLogging(req: Request, res: Response, next: NextFunction) {
+  console.log('API LIMITER: START', {
+    method: req.method,
+    path: req.path,
+    url: req.originalUrl,
+    headers: req.headers
+  });
+  apiLimiter(req, res, () => {
+    console.log('API LIMITER: END');
+    next();
+  });
+}
 // Strict rate limit for auth endpoints
 export const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes

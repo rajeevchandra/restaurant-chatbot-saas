@@ -32,19 +32,25 @@ export class PaymentsController {
 
       successResponse(res, config);
     } catch (error) {
-      next(error);
+        if (!res.headersSent) {
+          next(error);
+        }
     }
   }
 
   async getPaymentConfig(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const restaurantId = getRestaurantId(req);
-
       const config = await paymentsService.getPaymentConfig(restaurantId);
-
+      if (!config) {
+        res.status(404).json({ error: 'Payment config not found' });
+        return;
+      }
       successResponse(res, config);
     } catch (error) {
-      next(error);
+        if (!res.headersSent) {
+          next(error);
+        }
     }
   }
 
@@ -64,7 +70,9 @@ export class PaymentsController {
 
       successResponse(res, result);
     } catch (error) {
-      next(error);
+        if (!res.headersSent) {
+          next(error);
+        }
     }
   }
 
@@ -93,7 +101,9 @@ export class PaymentsController {
 
       createdResponse(res, payment);
     } catch (error) {
-      next(error);
+        if (!res.headersSent) {
+          next(error);
+        }
     }
   }
 
@@ -116,7 +126,9 @@ export class PaymentsController {
 
       res.json({ received: true, eventId: result.eventId });
     } catch (error) {
-      next(error);
+        if (!res.headersSent) {
+          next(error);
+        }
     }
   }
 
@@ -135,7 +147,9 @@ export class PaymentsController {
 
       res.json({ received: true, eventId: result.eventId });
     } catch (error) {
-      next(error);
+        if (!res.headersSent) {
+          next(error);
+        }
     }
   }
 }

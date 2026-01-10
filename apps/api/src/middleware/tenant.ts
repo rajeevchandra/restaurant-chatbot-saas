@@ -22,9 +22,16 @@ export interface TenantRequest extends Request {
  */
 export function attachTenant() {
   return (req: Request, res: Response, next: NextFunction) => {
+    console.log('TENANT MIDDLEWARE: START', {
+      method: req.method,
+      path: req.path,
+      url: req.originalUrl,
+      headers: req.headers
+    });
     try {
       // Ensure user is authenticated
       if (!req.user) {
+        console.log('TENANT MIDDLEWARE: END (no user)');
         throw new ForbiddenError('User not authenticated. Call requireAuth() before attachTenant()');
       }
 
@@ -32,6 +39,7 @@ export function attachTenant() {
       const restaurantId = req.user.restaurantId;
 
       if (!restaurantId) {
+        console.log('TENANT MIDDLEWARE: END (no restaurantId)');
         throw new ForbiddenError('User does not have an associated restaurant');
       }
 
@@ -46,8 +54,10 @@ export function attachTenant() {
         restaurantId,
       }, 'Tenant attached from user session');
 
+      console.log('TENANT MIDDLEWARE: END (success)');
       next();
     } catch (error) {
+      console.log('TENANT MIDDLEWARE: END (error)', error);
       next(error);
     }
   };
@@ -116,7 +126,14 @@ export function resolveRestaurantBySlug() {
  */
 export function requireTenant() {
   return (req: Request, res: Response, next: NextFunction) => {
+    console.log('REQUIRE TENANT MIDDLEWARE: START', {
+      method: req.method,
+      path: req.path,
+      url: req.originalUrl,
+      headers: req.headers
+    });
     if (!req.tenant?.restaurantId) {
+      console.log('REQUIRE TENANT MIDDLEWARE: END (missing tenant)');
       logger.error({
         requestId: req.id,
         path: req.path,
@@ -128,6 +145,8 @@ export function requireTenant() {
         'Ensure attachTenant() or resolveRestaurantBySlug() middleware is applied.'
       );
     }
+    console.log('REQUIRE TENANT MIDDLEWARE: END (success)');
+    next();
 
     next();
   };

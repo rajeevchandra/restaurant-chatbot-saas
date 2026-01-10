@@ -4,6 +4,25 @@ import { authenticate, authorize, AuthRequest } from '../../middleware/auth';
 
 const router = Router();
 
+/**
+ * @swagger
+ * /api/restaurants:
+ *   get:
+ *     summary: Get restaurant details
+ *     tags:
+ *       - Restaurants
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Success. Returns restaurant details.
+ *       404:
+ *         description: Restaurant not found
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Internal server error
+ */
 // Get restaurant details
 router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
   const restaurant = await prisma.restaurant.findUnique({
@@ -18,6 +37,46 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
 });
 
 // Update restaurant
+/**
+ * @swagger
+ * /api/restaurants:
+ *   patch:
+ *     summary: Update restaurant details
+ *     tags:
+ *       - Restaurants
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *               description:
+ *                 type: string
+ *               address:
+ *                 type: string
+ *               phone:
+ *                 type: string
+ *               email:
+ *                 type: string
+ *               timezone:
+ *                 type: string
+ *               currency:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Success. Returns updated restaurant.
+ *       404:
+ *         description: Restaurant not found
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Internal server error
+ */
 router.patch(
   '/',
   authenticate,

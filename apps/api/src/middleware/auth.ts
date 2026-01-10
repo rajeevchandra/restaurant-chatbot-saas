@@ -37,22 +37,34 @@ export interface AuthRequest extends Request {
  */
 export function requireAuth() {
   return (req: Request, res: Response, next: NextFunction) => {
+    console.log('AUTH MIDDLEWARE: START', {
+      method: req.method,
+      path: req.path,
+      url: req.originalUrl,
+      headers: req.headers
+    });
     try {
       // Extract token from Authorization header
       const authHeader = req.headers.authorization;
 
       if (!authHeader) {
-        throw new UnauthorizedError('Authorization header is required');
+        console.warn('AUTH MIDDLEWARE: missing Authorization header');
+        console.log('AUTH MIDDLEWARE: END (missing header)');
+        return res.status(401).json({ error: 'Authorization header is required' });
       }
 
       if (!authHeader.startsWith('Bearer ')) {
-        throw new UnauthorizedError('Authorization header must start with "Bearer "');
+        console.warn('AUTH MIDDLEWARE: Authorization header must start with Bearer');
+        console.log('AUTH MIDDLEWARE: END (bad header)');
+        return res.status(401).json({ error: 'Authorization header must start with "Bearer "' });
       }
 
       const token = authHeader.substring(7); // Remove 'Bearer ' prefix
 
       if (!token) {
-        throw new UnauthorizedError('JWT token is required');
+        console.warn('AUTH MIDDLEWARE: JWT token is required');
+        console.log('AUTH MIDDLEWARE: END (missing token)');
+        return res.status(401).json({ error: 'JWT token is required' });
       }
 
       // Verify JWT token
@@ -61,16 +73,20 @@ export function requireAuth() {
         decoded = jwt.verify(token, config.jwt.secret) as JWTPayload;
       } catch (error) {
         if (error instanceof jwt.TokenExpiredError) {
+          console.log('AUTH MIDDLEWARE: END (token expired)');
           throw new UnauthorizedError('Token has expired');
         }
         if (error instanceof jwt.JsonWebTokenError) {
+          console.log('AUTH MIDDLEWARE: END (invalid token)');
           throw new UnauthorizedError('Invalid token');
         }
+        console.log('AUTH MIDDLEWARE: END (other jwt error)');
         throw error;
       }
 
       // Validate payload structure
       if (!decoded.userId || !decoded.restaurantId || !decoded.role || !decoded.email) {
+        console.log('AUTH MIDDLEWARE: END (invalid payload)');
         throw new UnauthorizedError('Invalid token payload');
       }
 
@@ -94,9 +110,20 @@ export function requireAuth() {
         role: decoded.role,
       }, 'User authenticated');
 
+      console.log('AUTH MIDDLEWARE: END (success)');
       next();
     } catch (error) {
-      next(error);
+      // Always send a response for known auth errors
+      if (error instanceof UnauthorizedError) {
+        console.log('AUTH MIDDLEWARE: END (UnauthorizedError)');
+        return res.status(401).json({ error: error.message || 'Unauthorized' });
+      }
+      if (error instanceof ForbiddenError) {
+        return res.status(403).json({ error: error.message || 'Forbidden' });
+      }
+      // Fallback: log and send 500
+      console.error('AUTH MIDDLEWARE: unexpected error', error);
+      return res.status(500).json({ error: 'Internal server error (auth)' });
     }
   };
 }

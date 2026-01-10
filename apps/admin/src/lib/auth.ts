@@ -14,8 +14,8 @@ export async function login(email: string, password: string) {
   const response = await client.login(email, password)
   
   if (response.success && response.data) {
-    Cookies.set('accessToken', response.data.accessToken, { expires: 7 })
-    Cookies.set('user', JSON.stringify(response.data.user), { expires: 7 })
+    Cookies.set('accessToken', response.data.accessToken, { expires: 7, path: '/' })
+    Cookies.set('user', JSON.stringify(response.data.user), { expires: 7, path: '/' })
     return response.data
   } else {
     throw new Error(response.error || 'Login failed')

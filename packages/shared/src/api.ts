@@ -41,6 +41,10 @@ export class ApiClient {
       const data = await response.json() as any;
 
       if (!response.ok) {
+        // Global 401 handler: redirect to login if unauthorized
+        if (response.status === 401 && typeof window !== 'undefined') {
+          window.location.href = '/login';
+        }
         return {
           success: false,
           error: data.error || data.message || 'Request failed',

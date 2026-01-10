@@ -10,6 +10,8 @@ import { DollarSign, ShoppingBag, Clock, XCircle, TrendingUp, UtensilsCrossed } 
 import { formatCurrency, formatDateTime } from '@/lib/utils';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { getApiClient } from '@/lib/apiClient';
+import { useOrders } from '@/context/OrdersContext';
+import { useMenu } from '@/context/MenuContext';
 
 export default function DashboardPage() {
   const [dateRange, setDateRange] = useState<'today' | '7days' | '30days'>('today');
@@ -28,78 +30,75 @@ export default function DashboardPage() {
 
   const [ordersByHour, setOrdersByHour] = useState<any[]>([]);
   const [topSellingItems, setTopSellingItems] = useState<any[]>([]);
+  const { orders, loading: ordersLoading } = useOrders();
+  const { menuItems, loading: menuLoading } = useMenu();
   const [recentOrders, setRecentOrders] = useState<any[]>([]);
 
   useEffect(() => {
     fetchDashboardData();
-  }, [dateRange]);
+  }, [dateRange, orders, menuItems]);
 
   const fetchDashboardData = async () => {
     setLoading(true);
     try {
-      // 🚀 OPTIMIZED: Parallel API calls for 3x faster loading
-      const [ordersResponse, menuResponse] = await Promise.all([
-        getApiClient().getOrders({ limit: 50 }).catch(e => ({ success: false, data: null })),
-        getApiClient().getMenuItems().catch(e => ({ success: false, data: null }))
-      ]);
-
-      // Process orders data
-      if (ordersResponse.success && ordersResponse.data) {
-        const orders = ordersResponse.data.items || ordersResponse.data;
+      // Use orders and menuItems from context
+      if (orders && Array.isArray(orders)) {
         setRecentOrders(orders.slice(0, 5));
-        
+
         // Calculate stats from orders
         const today = new Date();
         today.setHours(0, 0, 0, 0);
-        
-        const todayOrders = orders.filter((order: any) => 
+
+        const todayOrders = orders.filter((order: any) =>
           new Date(order.createdAt) >= today
         );
-        
-        const revenue = todayOrders.reduce((sum: number, order: any) => 
+
+        const revenue = todayOrders.reduce((sum: number, order: any) =>
           sum + (order.total || 0), 0
         );
-        
+
         // Calculate orders by hour for chart
         const ordersByHourMap = new Map<number, number>();
         todayOrders.forEach((order: any) => {
           const hour = new Date(order.createdAt).getHours();
           ordersByHourMap.set(hour, (ordersByHourMap.get(hour) || 0) + 1);
         });
-        
+
         const hourlyData = Array.from({ length: 24 }, (_, i) => ({
           hour: `${i}:00`,
           orders: ordersByHourMap.get(i) || 0
         })).filter(d => d.orders > 0);
-        
+
         setOrdersByHour(hourlyData);
-        
+
         setStats(prev => ({
           ...prev,
           ordersToday: todayOrders.length,
           revenue: revenue,
         }));
 
-        // Calculate top selling items
-        if (orders.length > 0) {
+        // Calculate top selling items using menuItems for names
+        if (orders.length > 0 && menuItems.length > 0) {
           const itemCounts = new Map<string, { name: string; count: number; revenue: number }>();
-          
+
           orders.forEach((order: any) => {
             order.items?.forEach((item: any) => {
-              const key = item.menuItemId || item.menuItemName;
-              const existing = itemCounts.get(key) || { name: item.menuItemName, count: 0, revenue: 0 };
+              const menuItem = menuItems.find((m) => m.id === item.menuItemId);
+              const name = menuItem ? menuItem.name : item.menuItemName;
+              const key = item.menuItemId || name;
+              const existing = itemCounts.get(key) || { name, count: 0, revenue: 0 };
               itemCounts.set(key, {
-                name: item.menuItemName,
+                name,
                 count: existing.count + item.quantity,
                 revenue: existing.revenue + (item.unitPrice * item.quantity)
               });
             });
           });
-          
+
           const topItems = Array.from(itemCounts.values())
             .sort((a, b) => b.count - a.count)
             .slice(0, 5);
-          
+
           setTopSellingItems(topItems);
         }
       }
@@ -130,7 +129,7 @@ export default function DashboardPage() {
     { key: 'actions', label: 'Actions', className: 'text-right' },
   ];
 
-  if (loading) {
+  if (loading || ordersLoading || menuLoading) {
     return (
       <div className="space-y-8">
         <PageHeader title="Overview" description="Loading dashboard..." />
