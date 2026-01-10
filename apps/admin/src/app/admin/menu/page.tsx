@@ -19,6 +19,7 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
+import { apiClient } from '@/lib/apiClient';
 
 interface MenuItemOption {
   id: string;
@@ -77,77 +78,40 @@ export default function MenuPage() {
     loadMenu();
   }, []);
 
-  const loadMenu = () => {
+  const loadMenu = async () => {
     setLoading(true);
-    // TODO: Fetch menu from API
-    setTimeout(() => {
-      const mockCategories: Category[] = [
-        {
-          id: '1',
-          name: 'Appetizers',
-          menuItems: [
-            {
-              id: '1',
-              name: 'Spring Rolls',
-              description: 'Crispy vegetable spring rolls with sweet chili sauce',
-              price: 8.99,
-              isAvailable: true,
-              categoryId: '1',
-              imageUrl: 'https://images.unsplash.com/photo-1529006557810-274b9b2fc783?w=200',
-            },
-            {
-              id: '2',
-              name: 'Chicken Wings',
-              description: 'Spicy buffalo wings with ranch dressing',
-              price: 12.99,
-              isAvailable: true,
-              categoryId: '1',
-              optionGroups: [
-                {
-                  id: 'og1',
-                  name: 'Spice Level',
-                  type: 'SINGLE',
-                  required: true,
-                  options: [
-                    { id: 'opt1', name: 'Mild', price: 0 },
-                    { id: 'opt2', name: 'Medium', price: 0 },
-                    { id: 'opt3', name: 'Hot', price: 0 },
-                    { id: 'opt4', name: 'Extra Hot', price: 1.5 },
-                  ],
-                },
-              ],
-            },
-          ],
-        },
-        {
-          id: '2',
-          name: 'Main Courses',
-          menuItems: [
-            {
-              id: '3',
-              name: 'Grilled Salmon',
-              description: 'Fresh Atlantic salmon with lemon butter sauce',
-              price: 24.99,
-              isAvailable: true,
-              categoryId: '2',
-              imageUrl: 'https://images.unsplash.com/photo-1485921325833-c519f76c4927?w=200',
-            },
-            {
-              id: '4',
-              name: 'Beef Burger',
-              description: 'Angus beef with cheese, lettuce, and tomato',
-              price: 16.99,
-              isAvailable: false,
-              categoryId: '2',
-              imageUrl: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=200',
-            },
-          ],
-        },
-        {
-          id: '3',
-          name: 'Desserts',
-          menuItems: [
-            {
+    try {
+      const response = await apiClient.getMenuItems();
+      if (response.success && response.data) {
+        // Group items by category
+        const items = Array.isArray(response.data) ? response.data : response.data.items || [];
+        const groupedByCategory: Record<string, MenuItem[]> = {};
+        
+        items.forEach((item: any) => {
+          const categoryName = item.category?.name || 'Uncategorized';
+          if (!groupedByCategory[categoryName]) {
+            groupedByCategory[categoryName] = [];
+          }
+          groupedByCategory[categoryName].push({
+            ...item,
+            categoryId: item.categoryId || item.category?.id,
+          });
+        });
+        
+        const categoriesData: Category[] = Object.entries(groupedByCategory).map(([name, menuItems], index) => ({
+          id: menuItems[0]?.categoryId || String(index),
+          name,
+          menuItems,
+        }));
+        
+        setCategories(categoriesData);
+      }
+    } catch (error) {
+      console.error('Failed to load menu:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
               id: '5',
               name: 'Chocolate Lava Cake',
               description: 'Warm chocolate cake with molten center',
@@ -214,12 +178,10 @@ export default function MenuPage() {
     return Object.keys(errors).length === 0;
   };
 
-  const saveItem = () => {
+  const saveItem = async () => {
     if (!validateForm()) return;
 
-    // TODO: Save to API
-    const newItem: MenuItem = {
-      id: editingItem?.id || `item-${Date.now()}`,
+    const itemData = {
       name: formData.name,
       description: formData.description,
       price: parseFloat(formData.price),
@@ -229,39 +191,46 @@ export default function MenuPage() {
       optionGroups: optionGroups.length > 0 ? optionGroups : undefined,
     };
 
-    setCategories((prev) =>
-      prev.map((cat) => {
-        if (cat.id === formData.categoryId) {
-          if (editingItem) {
-            return {
-              ...cat,
-              menuItems: cat.menuItems.map((item) => (item.id === editingItem.id ? newItem : item)),
-            };
-          } else {
-            return { ...cat, menuItems: [...cat.menuItems, newItem] };
-          }
-        }
-        return cat;
-      })
-    );
+    try {
+      let response;
+      if (editingItem) {
+        response = await apiClient.updateMenuItem(editingItem.id, itemData);
+      } else {
+        response = await apiClient.createMenuItem(itemData);
+      }
 
-    setToastMessage(editingItem ? 'Item updated successfully!' : 'Item added successfully!');
-    setShowToast(true);
-    setTimeout(() => setShowToast(false), 3000);
-    closeItemEditor();
+      if (response.success) {
+        setToastMessage(editingItem ? 'Item updated successfully!' : 'Item added successfully!');
+        setShowToast(true);
+        setTimeout(() => setShowToast(false), 3000);
+        closeItemEditor();
+        await loadMenu(); // Reload menu from API
+      } else {
+        alert(`Failed to ${editingItem ? 'update' : 'create'} item: ${response.error}`);
+      }
+    } catch (error) {
+      console.error('Error saving item:', error);
+      alert('Failed to save item');
+    }
   };
 
-  const deleteItem = (itemId: string) => {
+  const deleteItem = async (itemId: string) => {
     if (!confirm('Are you sure you want to delete this item?')) return;
-    setCategories((prev) =>
-      prev.map((cat) => ({
-        ...cat,
-        menuItems: cat.menuItems.filter((item) => item.id !== itemId),
-      }))
-    );
-    setToastMessage('Item deleted successfully!');
-    setShowToast(true);
-    setTimeout(() => setShowToast(false), 3000);
+    
+    try {
+      const response = await apiClient.deleteMenuItem(itemId);
+      if (response.success) {
+        setToastMessage('Item deleted successfully!');
+        setShowToast(true);
+        setTimeout(() => setShowToast(false), 3000);
+        await loadMenu(); // Reload menu from API
+      } else {
+        alert('Failed to delete item: ' + response.error);
+      }
+    } catch (error) {
+      console.error('Error deleting item:', error);
+      alert('Failed to delete item');
+    }
   };
 
   const addOptionGroup = () => {

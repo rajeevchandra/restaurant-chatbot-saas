@@ -19,6 +19,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { formatCurrency, formatDateTime } from '@/lib/utils';
+import { apiClient } from '@/lib/apiClient';
 
 type OrderStatus = 'CREATED' | 'PAID' | 'ACCEPTED' | 'PREPARING' | 'READY' | 'COMPLETED' | 'CANCELLED';
 type OrderType = 'PICKUP' | 'DELIVERY';
@@ -81,115 +82,19 @@ export default function OrdersPage() {
     loadOrders();
   }, []);
 
-  const loadOrders = () => {
+  const loadOrders = async () => {
     setLoading(true);
-    // TODO: Fetch orders from API
-    setTimeout(() => {
-      setOrders([
-        {
-          id: 'ORD-1047',
-          customerName: 'Sarah Johnson',
-          customerEmail: 'sarah.j@email.com',
-          customerPhone: '+1 (555) 123-4567',
-          total: 45.99,
-          subtotal: 42.50,
-          tax: 3.49,
-          status: 'PREPARING',
-          orderType: 'PICKUP',
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          specialInstructions: 'Extra napkins please',
-          items: [
-            { id: '1', name: 'Margherita Pizza', quantity: 1, price: 14.99 },
-            { id: '2', name: 'Caesar Salad', quantity: 1, price: 12.00, options: [{ name: 'Dressing', value: 'On the side' }] },
-            { id: '3', name: 'Iced Tea', quantity: 2, price: 7.76 },
-          ],
-          statusHistory: [
-            { status: 'CREATED', timestamp: new Date(Date.now() - 1000 * 60 * 15).toISOString() },
-            { status: 'PAID', timestamp: new Date(Date.now() - 1000 * 60 * 12).toISOString() },
-            { status: 'ACCEPTED', timestamp: new Date(Date.now() - 1000 * 60 * 10).toISOString() },
-            { status: 'PREPARING', timestamp: new Date(Date.now() - 1000 * 60 * 5).toISOString() },
-          ],
-        },
-        {
-          id: 'ORD-1046',
-          customerName: 'Mike Chen',
-          customerEmail: 'mike.chen@email.com',
-          customerPhone: '+1 (555) 987-6543',
-          total: 67.50,
-          subtotal: 62.50,
-          tax: 5.00,
-          status: 'READY',
-          orderType: 'DELIVERY',
-          createdAt: new Date(Date.now() - 1000 * 60 * 25).toISOString(),
-          updatedAt: new Date(Date.now() - 1000 * 60 * 2).toISOString(),
-          deliveryAddress: '123 Main St, Apt 4B, New York, NY 10001',
-          items: [
-            { id: '4', name: 'Grilled Salmon', quantity: 1, price: 24.99 },
-            { id: '5', name: 'Garlic Bread', quantity: 2, price: 12.98 },
-            { id: '6', name: 'Tiramisu', quantity: 1, price: 8.99 },
-          ],
-          statusHistory: [
-            { status: 'CREATED', timestamp: new Date(Date.now() - 1000 * 60 * 25).toISOString() },
-            { status: 'PAID', timestamp: new Date(Date.now() - 1000 * 60 * 23).toISOString() },
-            { status: 'ACCEPTED', timestamp: new Date(Date.now() - 1000 * 60 * 20).toISOString() },
-            { status: 'PREPARING', timestamp: new Date(Date.now() - 1000 * 60 * 15).toISOString() },
-            { status: 'READY', timestamp: new Date(Date.now() - 1000 * 60 * 2).toISOString() },
-          ],
-        },
-        {
-          id: 'ORD-1045',
-          customerName: 'Emily Davis',
-          customerEmail: 'emily.d@email.com',
-          customerPhone: '+1 (555) 456-7890',
-          total: 32.25,
-          subtotal: 30.00,
-          tax: 2.25,
-          status: 'ACCEPTED',
-          orderType: 'PICKUP',
-          createdAt: new Date(Date.now() - 1000 * 60 * 35).toISOString(),
-          updatedAt: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
-          items: [
-            { id: '7', name: 'Chicken Wings', quantity: 12, price: 18.00 },
-            { id: '8', name: 'French Fries', quantity: 1, price: 6.00 },
-            { id: '9', name: 'Coke', quantity: 2, price: 6.00 },
-          ],
-          statusHistory: [
-            { status: 'CREATED', timestamp: new Date(Date.now() - 1000 * 60 * 35).toISOString() },
-            { status: 'PAID', timestamp: new Date(Date.now() - 1000 * 60 * 33).toISOString() },
-            { status: 'ACCEPTED', timestamp: new Date(Date.now() - 1000 * 60 * 30).toISOString() },
-          ],
-        },
-        {
-          id: 'ORD-1044',
-          customerName: 'James Wilson',
-          customerEmail: 'james.w@email.com',
-          customerPhone: '+1 (555) 321-0987',
-          total: 89.99,
-          subtotal: 83.50,
-          tax: 6.49,
-          status: 'COMPLETED',
-          orderType: 'DELIVERY',
-          createdAt: new Date(Date.now() - 1000 * 60 * 120).toISOString(),
-          updatedAt: new Date(Date.now() - 1000 * 60 * 90).toISOString(),
-          deliveryAddress: '456 Oak Ave, Brooklyn, NY 11201',
-          items: [
-            { id: '10', name: 'Family Pizza Combo', quantity: 1, price: 45.00 },
-            { id: '11', name: 'Buffalo Wings', quantity: 24, price: 28.50 },
-            { id: '12', name: 'Cheesecake', quantity: 2, price: 10.00 },
-          ],
-          statusHistory: [
-            { status: 'CREATED', timestamp: new Date(Date.now() - 1000 * 60 * 120).toISOString() },
-            { status: 'PAID', timestamp: new Date(Date.now() - 1000 * 60 * 118).toISOString() },
-            { status: 'ACCEPTED', timestamp: new Date(Date.now() - 1000 * 60 * 115).toISOString() },
-            { status: 'PREPARING', timestamp: new Date(Date.now() - 1000 * 60 * 105).toISOString() },
-            { status: 'READY', timestamp: new Date(Date.now() - 1000 * 60 * 95).toISOString() },
-            { status: 'COMPLETED', timestamp: new Date(Date.now() - 1000 * 60 * 90).toISOString() },
-          ],
-        },
-      ]);
+    try {
+      const response = await apiClient.getOrders({ limit: 100 });
+      if (response.success && response.data) {
+        const fetchedOrders = response.data.items || response.data;
+        setOrders(fetchedOrders);
+      }
+    } catch (error) {
+      console.error('Failed to load orders:', error);
+    } finally {
       setLoading(false);
-    }, 800);
+    }
   };
 
   const filteredOrders = orders.filter((order) => {
@@ -206,34 +111,42 @@ export default function OrdersPage() {
     return true;
   });
 
-  const updateOrderStatus = (orderId: string, newStatus: OrderStatus) => {
-    setOrders((prev) =>
-      prev.map((order) =>
-        order.id === orderId
-          ? {
-              ...order,
-              status: newStatus,
-              updatedAt: new Date().toISOString(),
-              statusHistory: [
-                ...order.statusHistory,
-                { status: newStatus, timestamp: new Date().toISOString() },
-              ],
-            }
-          : order
-      )
-    );
-    if (selectedOrder?.id === orderId) {
-      const updated = orders.find((o) => o.id === orderId);
-      if (updated) {
-        setSelectedOrder({ ...updated, status: newStatus });
+  const updateOrderStatus = async (orderId: string, newStatus: OrderStatus) => {
+    try {
+      const response = await apiClient.updateOrderStatus(orderId, newStatus);
+      if (response.success) {
+        // Refresh orders list
+        await loadOrders();
+        
+        // Update selected order if it's the one being changed
+        if (selectedOrder?.id === orderId) {
+          setSelectedOrder(null); // Close drawer
+        }
+      } else {
+        console.error('Failed to update order status:', response.error);
+        alert('Failed to update order status');
       }
+    } catch (error) {
+      console.error('Error updating order status:', error);
+      alert('Failed to update order status');
     }
   };
 
-  const cancelOrder = (orderId: string) => {
-    updateOrderStatus(orderId, 'CANCELLED');
-    setShowCancelDialog(false);
-    setSelectedOrder(null);
+  const cancelOrder = async (orderId: string) => {
+    try {
+      const response = await apiClient.cancelOrder(orderId);
+      if (response.success) {
+        await loadOrders();
+        setShowCancelDialog(false);
+        setSelectedOrder(null);
+      } else {
+        console.error('Failed to cancel order:', response.error);
+        alert('Failed to cancel order');
+      }
+    } catch (error) {
+      console.error('Error canceling order:', error);
+      alert('Failed to cancel order');
+    }
   };
 
   const orderColumns = [

@@ -1,25 +1,74 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import QRCode from 'qrcode'
 
 interface PaymentLinkProps {
   paymentLink: string
   amount: number | string
   orderId: string
-  onConfirmPayment: () => void
   onCancelOrder: () => void
+  apiUrl?: string
+  restaurantSlug?: string
 }
 
 export default function PaymentLink({ 
   paymentLink, 
   amount, 
-  orderId, 
-  onConfirmPayment,
-  onCancelOrder 
+  orderId,
+  onCancelOrder,
+  apiUrl,
+  restaurantSlug
 }: PaymentLinkProps) {
   const [showCancelConfirm, setShowCancelConfirm] = useState(false)
+  const [isPolling, setIsPolling] = useState(false)
+  const [showQR, setShowQR] = useState(false)
+  const qrCanvasRef = useRef<HTMLCanvasElement>(null)
+
+  // Generate QR code when it becomes visible
+  useEffect(() => {
+    if (showQR && qrCanvasRef.current && paymentLink) {
+      QRCode.toCanvas(qrCanvasRef.current, paymentLink, {
+        width: 200,
+        margin: 2,
+        color: {
+          dark: '#1f2937',
+          light: '#ffffff',
+        },
+      }).catch(err => {
+        console.error('Error generating QR code:', err)
+      })
+    }
+  }, [showQR, paymentLink])
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(paymentLink)
     alert('Payment link copied to clipboard!')
+  }
+
+  const handlePaymentClick = async () => {
+    // Start polling immediately when user clicks payment link
+    setIsPolling(true)
+    // Open payment link
+    window.open(paymentLink, '_blank', 'noopener,noreferrer')
+
+    // If polling API is available, trigger immediate poll
+    if (apiUrl && orderId) {
+      try {
+        const response = await fetch(`${apiUrl}/api/v1/payments/poll/${orderId}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        })
+        
+        if (response.ok) {
+          const result = await response.json()
+          console.log('Payment poll triggered:', result)
+        }
+      } catch (error) {
+        console.error('Failed to trigger payment poll:', error)
+        // Don't show error to user - widget polling will still work
+      }
+    }
   }
 
   const amountNumber = typeof amount === 'string' ? parseFloat(amount) : amount
@@ -33,52 +82,75 @@ export default function PaymentLink({
       
       <div className="payment-details">
         <p className="order-id">Order #{orderId.slice(0, 8)}</p>
-        <p className="payment-instruction">Click below to complete your payment securely:</p>
+        <p className="payment-instruction">
+          {isPolling 
+            ? '⏳ Waiting for payment confirmation...'
+            : 'Click below to complete your payment securely:'
+          }
+        </p>
+
+        {/* QR Code Section */}
+        {!isPolling && (
+          <div className="qr-code-section">
+            <button 
+              onClick={() => setShowQR(!showQR)}
+              className="qr-toggle-btn"
+            >
+              {showQR ? '📱 Hide QR Code' : '📱 Show QR Code'}
+            </button>
+            
+            {showQR && (
+              <div className="qr-code-wrapper">
+                <canvas ref={qrCanvasRef} className="qr-code-canvas" />
+                <p className="qr-code-hint">Scan with your phone to pay</p>
+              </div>
+            )}
+          </div>
+        )}
         
-        <a 
-          href={paymentLink} 
-          target="_blank" 
-          rel="noopener noreferrer"
+        <button
+          onClick={handlePaymentClick}
           className="payment-button"
+          disabled={isPolling}
         >
           <span className="payment-icon">🔒</span>
-          Pay Securely
-        </a>
-        
-        <button 
-          onClick={handleCopyLink}
-          className="copy-link-btn secondary"
-        >
-          📋 Copy Payment Link
+          {isPolling ? 'Payment Window Opened' : 'Pay Securely'}
         </button>
+        
+        {!isPolling && (
+          <button 
+            onClick={handleCopyLink}
+            className="copy-link-btn secondary"
+          >
+            📋 Copy Payment Link
+          </button>
+        )}
 
-        <div className="payment-actions">
-          <button 
-            type="button"
-            onClick={(e) => {
-              e.preventDefault()
-              onConfirmPayment()
-            }}
-            className="confirm-payment-btn"
-          >
-            ✅ I've Paid
-          </button>
-          
-          <button 
-            type="button"
-            onClick={(e) => {
-              e.preventDefault()
-              setShowCancelConfirm(true)
-            }}
-            className="cancel-order-btn"
-          >
-            ❌ Cancel Order
-          </button>
-        </div>
+        {!isPolling && (
+          <div className="payment-actions">
+            <button 
+              type="button"
+              onClick={(e) => {
+                e.preventDefault()
+                setShowCancelConfirm(true)
+              }}
+              className="cancel-order-btn"
+            >
+              ❌ Cancel Order
+            </button>
+          </div>
+        )}
       </div>
       
       <div className="payment-note">
-        <small>💡 After payment, click "I've Paid" so we can start preparing your order!</small>
+        {isPolling ? (
+          <small>
+            ✨ <strong>We're checking your payment status automatically.</strong><br/>
+            Once payment is complete, your order will be confirmed instantly!
+          </small>
+        ) : (
+          <small>💡 Payment will be verified automatically after completion. No need to confirm manually!</small>
+        )}
       </div>
 
       {showCancelConfirm && (

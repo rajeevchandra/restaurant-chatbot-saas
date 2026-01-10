@@ -99,7 +99,7 @@ export class BotEngine {
     console.log('Detected intent:', intent);
 
     // Process intent based on current state (FSM)
-    const response = await this.handleIntent(intent, message, context, session.state);
+    const response = await this.handleIntent(intent, message, context, session.state, sessionId);
 
     // Update session with new state and context
     await prisma.botSession.update({
@@ -242,7 +242,8 @@ export class BotEngine {
     intent: BotIntent,
     message: string,
     context: BotContext,
-    currentState: BotSessionState
+    currentState: BotSessionState,
+    sessionId: string
   ): Promise<{
     botResponse: BotResponse;
     newState?: BotSessionState;
@@ -269,7 +270,7 @@ What would you like to do?`,
 
     // Order status - available from any state
     if (intent === 'order_status') {
-      return await this.handleOrderStatus(context);
+      return await this.handleOrderStatus(context, sessionId);
     }
 
     // Payment intent - available from PAYMENT or ORDER_PLACED states
@@ -300,7 +301,7 @@ What would you like to do?`,
         return await this.handlePaymentState(intent, message, context);
 
       case 'ORDER_PLACED':
-        return await this.handleOrderPlacedState(intent, message, context);
+        return await this.handleOrderPlacedState(intent, message, context, sessionId);
 
       default:
         return {
@@ -394,7 +395,7 @@ What would you like to do?`,
       
       return {
         botResponse: {
-          text: `${selectedCategory.name}:`,
+          text: '', // Empty text so no duplicate message appears
           quickReplies: [...categoryNames, 'My Cart', 'Checkout'],
           cards: this.formatMenuCards([{ ...selectedCategory, menuItems: categoryItems }]),
         },
@@ -405,7 +406,7 @@ What would you like to do?`,
     const categoryNames = categories.map(cat => cat.name);
     return {
       botResponse: {
-        text: "Browse our menu by category:",
+        text: '', // Empty text so only buttons appear
         quickReplies: [...categoryNames, 'My Cart', 'Checkout'],
       },
     };
@@ -633,7 +634,8 @@ What would you like to do?`,
   private async handleOrderPlacedState(
     intent: BotIntent,
     message: string,
-    context: BotContext
+    context: BotContext,
+    sessionId: string
   ): Promise<any> {
     if (intent === 'browse_menu') {
       // Start new order
@@ -650,7 +652,7 @@ What would you like to do?`,
     }
 
     if (intent === 'order_status') {
-      return await this.handleOrderStatus(context);
+      return await this.handleOrderStatus(context, sessionId);
     }
 
     return {
@@ -792,36 +794,55 @@ What would you like to do?`,
   }
 
   // Helper: Handle order status
-  private async handleOrderStatus(context: BotContext): Promise<any> {
-    if (!context.orderId) {
+  private async handleOrderStatus(context: BotContext, sessionId: string): Promise<any> {
+    // Get the current order from session context
+    const currentOrderId = context.orderId;
+    
+    if (!currentOrderId) {
       return {
         botResponse: {
-          text: 'You don\'t have any active orders.',
+          text: 'You don\'t have any active orders yet. Start by browsing our menu!',
           quickReplies: ['View Menu'],
         },
       };
     }
 
+    // Get the order details
     const order = await prisma.order.findUnique({
-      where: { id: context.orderId },
+      where: { id: currentOrderId },
       include: { items: true },
     });
 
     if (!order) {
       return {
         botResponse: {
-          text: 'Order not found.',
+          text: 'Order not found. Would you like to start a new order?',
           quickReplies: ['View Menu'],
         },
       };
     }
 
-    const statusEmoji = order.status === 'PAID' ? '✅' : order.status === 'CANCELLED' ? '❌' : '⏳';
+    // Format order details
+    const statusEmoji = order.status === 'PAID' ? '✅' : 
+                       order.status === 'DELIVERED' ? '📦' :
+                       order.status === 'PREPARING' ? '👨‍🍳' :
+                       order.status === 'READY' ? '🔔' :
+                       order.status === 'PAYMENT_PENDING' ? '💳' : '⏳';
+    
+    const itemsList = order.items.map(item => 
+      `  • ${item.quantity}x ${item.menuItemName} - $${Number(item.unitPrice * item.quantity).toFixed(2)}`
+    ).join('\n');
+
+    const orderText = `${statusEmoji} Order #${order.id.slice(0, 8)}\n\nStatus: ${order.status}\n\nItems:\n${itemsList}\n\nTotal: $${Number(order.total).toFixed(2)}`;
+
+    const quickReplies = order.status === 'PAYMENT_PENDING' 
+      ? ['Pay Now', 'View Menu'] 
+      : ['New Order', 'View Menu'];
     
     return {
       botResponse: {
-        text: `${statusEmoji} Order #${order.id.slice(0, 8)}\nStatus: ${order.status}\nTotal: $${Number(order.total).toFixed(2)}\nItems: ${order.items.length}`,
-        quickReplies: order.status === 'PAYMENT_PENDING' ? ['Pay Now', 'Cancel Order', 'View Menu'] : ['New Order', 'View Menu'],
+        text: orderText,
+        quickReplies,
       },
     };
   }

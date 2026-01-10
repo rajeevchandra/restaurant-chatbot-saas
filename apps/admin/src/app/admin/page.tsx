@@ -9,6 +9,7 @@ import { EmptyState } from '@/components/EmptyState';
 import { DollarSign, ShoppingBag, Clock, XCircle, TrendingUp, UtensilsCrossed } from 'lucide-react';
 import { formatCurrency, formatDateTime } from '@/lib/utils';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { apiClient } from '@/lib/apiClient';
 
 export default function DashboardPage() {
   const [dateRange, setDateRange] = useState<'today' | '7days' | '30days'>('today');
@@ -30,74 +31,42 @@ export default function DashboardPage() {
   const [recentOrders, setRecentOrders] = useState<any[]>([]);
 
   useEffect(() => {
-    // TODO: Fetch actual data from API based on dateRange
-    setTimeout(() => {
-      setStats({
-        ordersToday: 47,
-        ordersYesterday: 42,
-        revenue: 1245.80,
-        revenueYesterday: 1150.30,
-        avgPrepTime: 18.5,
-        avgPrepTimeYesterday: 21.2,
-        cancellationRate: 2.8,
-        cancellationRateYesterday: 4.1,
-      });
+    fetchDashboardData();
+  }, [dateRange]);
 
-      setOrdersByHour([
-        { hour: '8am', orders: 3 },
-        { hour: '9am', orders: 5 },
-        { hour: '10am', orders: 8 },
-        { hour: '11am', orders: 12 },
-        { hour: '12pm', orders: 18 },
-        { hour: '1pm', orders: 15 },
-        { hour: '2pm', orders: 9 },
-        { hour: '3pm', orders: 6 },
-        { hour: '4pm', orders: 4 },
-        { hour: '5pm', orders: 10 },
-        { hour: '6pm', orders: 14 },
-        { hour: '7pm', orders: 11 },
-      ]);
-
-      setTopSellingItems([
-        { id: '1', name: 'Margherita Pizza', count: 24, revenue: 348.00 },
-        { id: '2', name: 'Caesar Salad', count: 18, revenue: 216.00 },
-        { id: '3', name: 'Grilled Salmon', count: 15, revenue: 374.85 },
-        { id: '4', name: 'Chicken Wings', count: 14, revenue: 181.86 },
-        { id: '5', name: 'Beef Burger', count: 12, revenue: 203.88 },
-      ]);
-
-      setRecentOrders([
-        {
-          id: 'ORD-1047',
-          customerName: 'Sarah Johnson',
-          total: 45.99,
-          status: 'PREPARING',
-          createdAt: new Date().toISOString(),
-        },
-        {
-          id: 'ORD-1046',
-          customerName: 'Mike Chen',
-          total: 67.50,
-          status: 'READY',
-          createdAt: new Date(Date.now() - 1000 * 60 * 8).toISOString(),
-        },
-        {
-          id: 'ORD-1045',
-          customerName: 'Emily Davis',
-          total: 32.25,
-          status: 'ACCEPTED',
-          createdAt: new Date(Date.now() - 1000 * 60 * 12).toISOString(),
-        },
-        {
-          id: 'ORD-1044',
-          customerName: 'James Wilson',
-          total: 89.99,
-          status: 'COMPLETED',
-          createdAt: new Date(Date.now() - 1000 * 60 * 25).toISOString(),
-        },
-      ]);
-
+  const fetchDashboardData = async () => {
+    setLoading(true);
+    try {
+      // Fetch recent orders
+      const ordersResponse = await apiClient.getOrders({ limit: 10 });
+      if (ordersResponse.success && ordersResponse.data) {
+        const orders = ordersResponse.data.items || ordersResponse.data;
+        setRecentOrders(orders.slice(0, 5));
+        
+        // Calculate stats from orders
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        const todayOrders = orders.filter((order: any) => 
+          new Date(order.createdAt) >= today
+        );
+        
+        const revenue = todayOrders.reduce((sum: number, order: any) => 
+          sum + (order.total || 0), 0
+        );
+        
+        setStats(prev => ({
+          ...prev,
+          ordersToday: todayOrders.length,
+          revenue: revenue,
+        }));
+      }
+    } catch (error) {
+      console.error('Failed to fetch dashboard data:', error);
+    } finally {
       setLoading(false);
+    }
+  };
     }, 800);
   }, [dateRange]);
 

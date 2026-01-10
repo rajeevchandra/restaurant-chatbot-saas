@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { PageHeader } from '@/components/PageHeader';
 import { StatusPill } from '@/components/StatusPill';
 import {
@@ -16,6 +16,7 @@ import {
   Shield,
   Loader2,
 } from 'lucide-react';
+import { apiClient } from '@/lib/apiClient';
 
 type Step = 1 | 2 | 3 | 4;
 
@@ -27,6 +28,7 @@ export default function PaymentsPage() {
   const [selectedProvider, setSelectedProvider] = useState<'STRIPE' | 'SQUARE' | null>(null);
   const [isConfigured, setIsConfigured] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
+  const [loading, setLoading] = useState(true);
 
   // Form state
   const [credentials, setCredentials] = useState({
@@ -49,33 +51,73 @@ export default function PaymentsPage() {
   const canProceedToStep3 = credentials.publicKey && credentials.secretKey;
   const canTestConnection = credentials.webhookSecret && currentStep >= 3;
 
-  const handleProviderSelect = (provider: 'STRIPE' | 'SQUARE') => {
-    setSelectedProvider(provider);
-    setCurrentStep(2);
+  useEffect(() => {
+    loadPaymentConfig();
+  }, []);
+
+  const loadPaymentConfig = async () => {
+    try {
+      const response = await apiClient.getPaymentConfig();
+      if (response.success && response.data) {
+        const config = response.data;
+        if (config.provider) {
+          setSelectedProvider(config.provider);
+          setIsConfigured(true);
+          setCurrentStep(4);
+          setConnectionStatus('success');
+          // Don't load actual keys for security
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load payment config:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleSaveCredentials = () => {
+  const handleSaveCredentials = async () => {
     if (!canProceedToStep3) return;
-    // TODO: Save to API (encrypted)
-    setCurrentStep(3);
-  };
+    
+    try {
+      const response = await apiClient.updatePaymentConfig({
+        provider: selectedProvider,
+        publicKey: credentials.publicKey,
+        secretKey: credentials.secretKey,
+      });
 
-  const copyWebhookUrl = () => {
-    navigator.clipboard.writeText(webhookUrl);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+      if (response.success) {
+        setCurrentStep(3);
+      } else {
+        alert('Failed to save credentials: ' + response.error);
+      }
+    } catch (error) {
+      console.error('Error saving credentials:', error);
+      alert('Failed to save credentials');
+    }
   };
 
   const testConnection = async () => {
     setConnectionStatus('testing');
-    // TODO: Call API to test connection
-    setTimeout(() => {
-      setConnectionStatus(Math.random() > 0.3 ? 'success' : 'error');
-      if (connectionStatus === 'success') {
+    
+    try {
+      const response = await apiClient.updatePaymentConfig({
+        provider: selectedProvider,
+        publicKey: credentials.publicKey,
+        secretKey: credentials.secretKey,
+        webhookSecret: credentials.webhookSecret,
+      });
+
+      if (response.success) {
+        setConnectionStatus('success');
         setIsConfigured(true);
         setTimeout(() => setCurrentStep(4), 1000);
+      } else {
+        setConnectionStatus('error');
       }
-    }, 2000);
+    } catch (error) {
+      console.error('Error testing connection:', error);
+      setConnectionStatus('error');
+    }
   };
 
   const steps = [

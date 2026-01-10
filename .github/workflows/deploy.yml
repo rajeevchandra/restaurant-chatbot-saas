@@ -1,0 +1,171 @@
+name: Deploy to Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        type: choice
+        options:
+          - production
+          - staging
+      skip_backup:
+        description: 'Skip database backup'
+        required: false
+        type: boolean
+        default: false
+
+env:
+  NODE_VERSION: '20.x'
+
+jobs:
+  deploy:
+    name: Deploy to ${{ inputs.environment }}
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.8.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Add server to known hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Create deployment package
+        run: |
+          tar -czf deploy.tar.gz \
+            docker-compose.prod.yml \
+            deploy.sh \
+            .env.production.example \
+            apps/ \
+            packages/
+
+      - name: Copy files to server
+        run: |
+          scp deploy.tar.gz ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:~/restaurant-saas/
+
+      - name: Deploy application
+        run: |
+          ssh ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << 'EOF'
+            cd ~/restaurant-saas
+            
+            # Extract files
+            tar -xzf deploy.tar.gz
+            rm deploy.tar.gz
+            
+            # Make deploy script executable
+            chmod +x deploy.sh
+            
+            # Create backup (unless skipped)
+            if [ "${{ inputs.skip_backup }}" != "true" ]; then
+              echo "Creating database backup..."
+              ./deploy.sh backup
+            fi
+            
+            # Pull latest images
+            docker-compose -f docker-compose.prod.yml pull
+            
+            # Run migrations
+            echo "Running database migrations..."
+            ./deploy.sh migrate
+            
+            # Deploy services
+            echo "Deploying services..."
+            docker-compose -f docker-compose.prod.yml up -d --remove-orphans
+            
+            # Wait for services to start
+            echo "Waiting for services to start..."
+            sleep 10
+            
+            # Run health checks
+            ./deploy.sh health
+            
+            echo "✅ Deployment completed"
+          EOF
+
+      - name: Verify deployment
+        run: |
+          # Wait for application to fully start
+          sleep 15
+          
+          # Check API health
+          response=$(curl -s -o /dev/null -w "%{http_code}" https://${{ secrets.PRODUCTION_API_URL }}/health || echo "000")
+          if [ "$response" != "200" ]; then
+            echo "❌ API health check failed: $response"
+            exit 1
+          fi
+          echo "✅ API is healthy"
+          
+          # Check Admin health
+          response=$(curl -s -o /dev/null -w "%{http_code}" https://${{ secrets.PRODUCTION_ADMIN_URL }}/ || echo "000")
+          if [ "$response" != "200" ]; then
+            echo "⚠️  Admin health check failed: $response"
+          fi
+          echo "✅ Admin is healthy"
+          
+          # Check Widget health
+          response=$(curl -s -o /dev/null -w "%{http_code}" https://${{ secrets.PRODUCTION_WIDGET_URL }}/ || echo "000")
+          if [ "$response" != "200" ]; then
+            echo "⚠️  Widget health check failed: $response"
+          fi
+          echo "✅ Widget is healthy"
+
+      - name: Rollback on failure
+        if: failure()
+        run: |
+          echo "❌ Deployment failed, initiating rollback..."
+          ssh ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << 'EOF'
+            cd ~/restaurant-saas
+            
+            # Restore from backup
+            latest_backup=$(ls -t backups/*.sql | head -1)
+            if [ -n "$latest_backup" ]; then
+              echo "Restoring from backup: $latest_backup"
+              cat "$latest_backup" | docker exec -i restaurant-postgres psql -U postgres -d restaurant
+            fi
+            
+            # Restart services
+            docker-compose -f docker-compose.prod.yml restart
+            
+            echo "Rollback completed"
+          EOF
+
+      - name: Send notification
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const status = '${{ job.status }}';
+            const emoji = status === 'success' ? '✅' : '❌';
+            const message = `${emoji} Deployment to ${{ inputs.environment }} ${status}`;
+            
+            // Create GitHub deployment
+            await github.rest.repos.createDeployment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: context.ref,
+              environment: '${{ inputs.environment }}',
+              auto_merge: false,
+              required_contexts: []
+            });
+
+      - name: Send Slack notification (optional)
+        if: always()
+        run: |
+          # Uncomment and configure if you have Slack webhook
+          # curl -X POST ${{ secrets.SLACK_WEBHOOK_URL }} \
+          #   -H 'Content-Type: application/json' \
+          #   -d '{
+          #     "text": "${{ job.status == 'success' && '✅' || '❌' }} Deployment to ${{ inputs.environment }}: ${{ job.status }}",
+          #     "channel": "#deployments",
+          #     "username": "GitHub Actions"
+          #   }'
+          echo "Deployment ${{ job.status }}"

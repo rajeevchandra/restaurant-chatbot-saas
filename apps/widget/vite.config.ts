@@ -4,6 +4,20 @@ import { resolve } from 'path'
 
 export default defineConfig({
   plugins: [react()],
+  server: {
+    // Handle /order/:id/success routes
+    proxy: {
+      '/order': {
+        target: 'http://localhost:3002',
+        bypass: (req) => {
+          // Serve success.html for /order/{id}/success paths
+          if (req.url?.match(/\/order\/[^/]+\/success/)) {
+            return '/success.html';
+          }
+        },
+      },
+    },
+  },
   build: {
     lib: {
       entry: resolve(__dirname, 'src/index.tsx'),

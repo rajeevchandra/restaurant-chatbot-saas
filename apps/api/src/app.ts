@@ -22,9 +22,11 @@ import menuRoutes from './modules/menu/routes';
 import inventoryRoutes from './modules/inventory/routes';
 import orderRoutes from './modules/orders/routes';
 import paymentRoutes from './modules/payments/routes';
+import paymentPollRoutes from './modules/payments/poll';
 import webhookRoutes from './modules/webhooks/routes';
 import botRoutesLegacy from './modules/bot/routes';
 import metricsRoutes from './routes/metrics';
+import healthRoutes from './routes/health';
 
 const app = express();
 
@@ -67,6 +69,17 @@ app.use('/api/webhooks/square', express.raw({ type: 'application/json' }));
 app.use('/api/v1/webhooks/stripe', express.raw({ type: 'application/json' }));
 app.use('/api/v1/webhooks/square', express.raw({ type: 'application/json' }));
 
+// Debug middleware for webhooks
+app.use('/api/v1/webhooks', (req, res, next) => {
+  console.log('=== WEBHOOK REQUEST RECEIVED IN APP.TS ===');
+  console.log('Method:', req.method);
+  console.log('Path:', req.path);
+  console.log('URL:', req.url);
+  console.log('Body type:', typeof req.body);
+  console.log('Body is Buffer:', Buffer.isBuffer(req.body));
+  next();
+});
+
 // General JSON body parser for all other routes
 app.use(express.json({ limit: config.bodyLimit }));
 app.use(express.urlencoded({ extended: true, limit: config.bodyLimit }));
@@ -85,53 +98,16 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
 // ========================================
 
 /**
- * Basic health check - returns OK if server is running
- * GET /health
+ * Health, readiness, and liveness endpoints
+ * GET /health, /ready, /live
  */
-app.get('/health', (req: Request, res: Response) => {
-  res.json({
-    status: 'ok',
-    timestamp: new Date().toISOString(),
-    environment: config.nodeEnv,
-    version: '1.0.0',
-  });
-});
+app.use(healthRoutes);
 
 /**
  * Prometheus metrics endpoint
  * GET /metrics
  */
 app.use('/metrics', metricsRoutes);
-
-/**
- * Readiness check - validates database connectivity
- * GET /ready
- */
-app.get('/ready', async (req: Request, res: Response) => {
-  try {
-    // Check database connection
-    const prisma = (await import('./db/prisma')).default;
-    await prisma.$queryRaw`SELECT 1`;
-    
-    res.json({
-      status: 'ready',
-      checks: {
-        database: 'ok',
-      },
-      timestamp: new Date().toISOString(),
-    });
-  } catch (error) {
-    logger.error({ err: error }, 'Readiness check failed');
-    
-    res.status(503).json({
-      status: 'not_ready',
-      checks: {
-        database: 'failed',
-      },
-      timestamp: new Date().toISOString(),
-    });
-  }
-});
 
 // ========================================
 // API ROUTES - V1
@@ -145,7 +121,8 @@ import adminOrderRoutes from './modules/orders/v1/admin.routes';
 import publicOrderRoutes from './modules/orders/v1/public.routes';
 import adminPaymentRoutes from './modules/payments/v1/admin.routes';
 import publicPaymentRoutes from './modules/payments/v1/public.routes';
-import webhooksRoutes from './modules/payments/v1/webhooks.routes';
+// Using new webhook handler that supports multi-tenant properly
+// import webhooksRoutesV1 from './modules/payments/v1/webhooks.routes';
 import botRoutes from './modules/bot/v1/routes';
 
 /**
@@ -180,7 +157,13 @@ app.use('/api/v1/public', publicV1Router);
  * Webhook routes - signature verification required
  * Examples: payment provider webhooks (Stripe, Square)
  */
-app.use('/api/v1/webhooks', webhooksRoutes);
+app.use('/api/v1/webhooks', webhookRoutes);
+
+/**
+ * Payment polling routes - fallback for when webhooks don't work
+ * Called by widget after payment link is opened
+ */
+app.use('/api/v1/payments/poll', paymentPollRoutes);
 
 // ========================================
 // API ROUTES - LEGACY (to be migrated)

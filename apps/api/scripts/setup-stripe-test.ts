@@ -41,12 +41,15 @@ async function setupStripeTest() {
     process.exit(1);
   }
 
-  const STRIPE_SECRET_KEY: string = 'sk_test_YOUR_SECRET_KEY_HERE'; // Replace with your actual test key from Stripe Dashboard
-  const STRIPE_PUBLISHABLE_KEY: string = 'pk_test_YOUR_PUBLISHABLE_KEY_HERE'; // Replace with your actual publishable key from Stripe Dashboard
+  const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY;
+  const STRIPE_PUBLISHABLE_KEY = process.env.STRIPE_PUBLISHABLE_KEY;
   
-  if (STRIPE_SECRET_KEY === 'sk_test_YOUR_SECRET_KEY_HERE' || STRIPE_PUBLISHABLE_KEY === 'pk_test_YOUR_PUBLISHABLE_KEY_HERE') {
-    console.error('❌ Please edit this script and add your Stripe test keys first!');
-    console.log('\n📝 Get your keys from: https://dashboard.stripe.com/test/apikeys');
+  if (!STRIPE_SECRET_KEY || !STRIPE_PUBLISHABLE_KEY) {
+    console.error('❌ STRIPE_SECRET_KEY and STRIPE_PUBLISHABLE_KEY must be set in your .env file!');
+    console.log('\n📝 Add these to your .env file:');
+    console.log('STRIPE_SECRET_KEY=sk_test_...');
+    console.log('STRIPE_PUBLISHABLE_KEY=pk_test_...');
+    console.log('\n🔗 Get your keys from: https://dashboard.stripe.com/test/apikeys');
     process.exit(1);
   }
 

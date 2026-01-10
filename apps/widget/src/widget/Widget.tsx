@@ -8,6 +8,7 @@ import MenuItemCard from './components/MenuItemCard'
 import CheckoutForm from './components/CheckoutForm'
 import PaymentLink from './components/PaymentLink'
 import OrderStatusCard from './components/OrderStatusCard'
+import NotificationOptIn from './components/NotificationOptIn'
 import { getSessionId } from '../lib/session'
 import { getCart, saveCart, clearCart } from '../lib/cart'
 import { ApiClient } from '@restaurant-saas/shared'
@@ -73,6 +74,13 @@ export default function Widget({
   const [isProcessingCheckout, setIsProcessingCheckout] = useState(false)
   const [pollingOrderId, setPollingOrderId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [notificationPreferences, setNotificationPreferences] = useState<{
+    smsUpdates: boolean
+    emailReceipt: boolean
+    phone?: string
+    email?: string
+  } | null>(null)
+  const [showNotificationOptIn, setShowNotificationOptIn] = useState(false)
   const sessionId = useRef(getSessionId(restaurantSlug))
   const API_URL = apiUrl || import.meta.env.VITE_API_URL || 'http://localhost:3000'
   const apiClient = useRef(new ApiClient(API_URL))
@@ -164,7 +172,6 @@ export default function Widget({
 
     try {
       setError(null)
-      console.log('Sending message:', text, 'to restaurant:', restaurantSlug)
       
       let response = await apiClient.current.sendBotMessage(
         restaurantSlug,
@@ -174,7 +181,6 @@ export default function Widget({
 
       // Retry once on failure
       if (!response.success && response.error) {
-        console.log('Retrying after error:', response.error)
         await new Promise(resolve => setTimeout(resolve, 1000))
         response = await apiClient.current.sendBotMessage(
           restaurantSlug,
@@ -182,8 +188,6 @@ export default function Widget({
           text
         )
       }
-
-      console.log('Bot response:', response)
 
       // Remove optimistic flag and update ID
       setMessages((prev) => 
@@ -196,7 +200,6 @@ export default function Widget({
 
       if (response.success && response.data) {
         const responseData = response.data as BotResponseData;
-        console.log('Full response data:', JSON.stringify(responseData, null, 2));
         
         // Check if user just requested navigation (menu, special offers, etc.)
         const userWantedNavigation = isNavigatingToMenu
@@ -222,13 +225,12 @@ export default function Widget({
         } else {
           botMessage = {
             id: (Date.now() + 1).toString(),
-            text: responseData.text || responseData.message || 'No response',
+            text: responseData.text || responseData.message || '',
             sender: 'bot',
             timestamp: new Date(),
             data: responseData.data,
           }
           setQuickReplies(responseData.quickReplies || [])
-          console.log('Setting cards:', responseData.cards)
           setCards(responseData.cards || [])
           
           // Show checkout form if bot is asking for contact info
@@ -255,11 +257,13 @@ export default function Widget({
           // Otherwise, maintain current state (don't change showCheckoutForm)
         }
         
-        setMessages((prev) => [...prev, botMessage])
+        // Only add message to chat if it has text content
+        if (botMessage.text && botMessage.text.trim().length > 0) {
+          setMessages((prev) => [...prev, botMessage])
+        }
         
         // Show payment link if present in response
         if (responseData.data?.paymentLink) {
-          console.log('Setting payment data:', responseData.data)
           setPaymentData(responseData.data)
         } else if (!responseData.text?.includes('pay') && !responseData.text?.includes('payment')) {
           // Only clear payment data if the message is not about payment
@@ -268,7 +272,6 @@ export default function Widget({
         
         // Update cart if present in response
         if (responseData.data?.cartItems) {
-          console.log('Updating cart:', responseData.data.cartItems);
           setCart(responseData.data.cartItems)
         }
       } else {
@@ -335,19 +338,18 @@ export default function Widget({
     clearCart(restaurantSlug)
     setCurrentOrder(null)
     setPaymentData(null)
+    setNotificationPreferences(null)
+    setShowNotificationOptIn(false)
   }
 
   // Get quantity of item in cart
   const getItemQuantity = (itemId: string): number => {
     const item = cart.find(i => i.menuItemId === itemId || i.id === itemId)
-    const qty = item ? item.quantity : 0
-    console.log('getItemQuantity:', itemId, '=', qty)
-    return qty
+    return item ? item.quantity : 0
   }
 
   // Add item to cart (quantity = 1)
   const handleAddItemToCart = (itemId: string, itemName: string, unitPrice: number) => {
-    console.log('handleAddItemToCart:', itemId, itemName, unitPrice)
     const existingItem = cart.find(i => (i.menuItemId === itemId || i.id === itemId))
     
     if (existingItem) {
@@ -492,14 +494,16 @@ export default function Widget({
           return orderItem
         }),
         customerName: 'Guest', // Will be updated with checkout form
-        notes: `Session: ${sessionId.current}`,
+        customerPhone: notificationPreferences?.phone,
+        customerEmail: notificationPreferences?.email,
+        notes: `Session: ${sessionId.current}${notificationPreferences ? ` | SMS: ${notificationPreferences.smsUpdates ? 'Yes' : 'No'}, Email: ${notificationPreferences.emailReceipt ? 'Yes' : 'No'}` : ''}`,
       }
 
       let response = await apiClient.current.createPublicOrder(restaurantSlug, orderData)
 
       // Retry once on failure
       if (!response.success && response.error) {
-        console.log('Retrying order creation after error:', response.error)
+        
         await new Promise(resolve => setTimeout(resolve, 1000))
         response = await apiClient.current.createPublicOrder(restaurantSlug, orderData)
       }
@@ -574,32 +578,6 @@ export default function Widget({
     const subtotal = cart.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0)
     const tax = subtotal * 0.08
     return subtotal + tax
-  }
-
-  const handleConfirmPayment = () => {
-    const orderId = pollingOrderId || paymentData?.orderId
-    
-    if (!orderId) return
-
-    // Continue polling - user claims they paid
-    const confirmMessage: Message = {
-      id: Date.now().toString(),
-      text: '🔄 Thank you! Checking your payment status...',
-      sender: 'bot',
-      timestamp: new Date(),
-    }
-    
-    setMessages((prev) => [...prev, confirmMessage])
-
-    // Hide payment link to show processing state
-    setPaymentData(null)
-    
-    // Ensure polling is active
-    if (!pollingOrderId) {
-      setPollingOrderId(orderId)
-    }
-
-    // Payment polling will automatically detect when payment is complete
   }
 
   const handleCancelOrder = async () => {
@@ -700,8 +678,9 @@ export default function Widget({
                     paymentLink={paymentData.paymentLink}
                     amount={paymentData.amount}
                     orderId={paymentData.orderId}
-                    onConfirmPayment={handleConfirmPayment}
                     onCancelOrder={handleCancelOrder}
+                    apiUrl={API_URL}
+                    restaurantSlug={restaurantSlug}
                   />
                 )}
 
@@ -764,7 +743,6 @@ export default function Widget({
                   <div className="cards-container">
                     {cards.map((card, index) => {
                       const quantity = getItemQuantity(card.id)
-                      console.log('Rendering card:', card.title, 'quantity:', quantity)
                       return (
                         <MenuItemCard
                           key={index}
@@ -786,14 +764,29 @@ export default function Widget({
                 
                 {/* Cart Summary */}
                 {cart.length > 0 && !pollingOrderId && !currentOrder && !paymentData && (
-                  <CartSummary 
-                    items={cart}
-                    onUpdateQuantity={handleUpdateCartQuantity}
-                    onRemoveItem={handleRemoveCartItem}
-                    onClearCart={handleClearCart}
-                    onCheckout={handleCheckout}
-                    isProcessing={isProcessingCheckout}
-                  />
+                  <>
+                    <CartSummary 
+                      items={cart}
+                      onUpdateQuantity={handleUpdateCartQuantity}
+                      onRemoveItem={handleRemoveCartItem}
+                      onClearCart={handleClearCart}
+                      onCheckout={handleCheckout}
+                      isProcessing={isProcessingCheckout}
+                    />
+                    
+                    {/* Notification Opt-In */}
+                    {!showNotificationOptIn && (
+                      <NotificationOptIn
+                        existingPhone={undefined}
+                        existingEmail={undefined}
+                        onConfirm={(preferences) => {
+                          setNotificationPreferences(preferences)
+                          setShowNotificationOptIn(true)
+                        }}
+                        isProcessing={isProcessingCheckout}
+                      />
+                    )}
+                  </>
                 )}
                 
                 {/* Message Input */}

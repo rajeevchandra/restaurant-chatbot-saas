@@ -17,6 +17,7 @@ import {
   UtensilsCrossed,
 } from 'lucide-react';
 import { formatDateTime } from '@/lib/utils';
+import { apiClient } from '@/lib/apiClient';
 
 interface InventoryItem {
   id: string;
@@ -42,62 +43,29 @@ export default function InventoryPage() {
     loadInventory();
   }, []);
 
-  const loadInventory = () => {
+  const loadInventory = async () => {
     setLoading(true);
-    // TODO: Fetch inventory from API
-    setTimeout(() => {
-      setInventory([
-        {
-          id: '1',
-          menuItemId: 'item-1',
-          menuItemName: 'Spring Rolls',
-          categoryName: 'Appetizers',
-          quantity: 45,
-          lowStockThreshold: 10,
-          isSoldOut: false,
-          lastUpdated: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
-        },
-        {
-          id: '2',
-          menuItemId: 'item-2',
-          menuItemName: 'Chicken Wings',
-          categoryName: 'Appetizers',
-          quantity: 8,
-          lowStockThreshold: 10,
-          isSoldOut: false,
-          lastUpdated: new Date(Date.now() - 1000 * 60 * 45).toISOString(),
-        },
-        {
-          id: '3',
-          menuItemId: 'item-3',
-          menuItemName: 'Grilled Salmon',
-          categoryName: 'Main Courses',
-          quantity: 22,
-          lowStockThreshold: 15,
-          isSoldOut: false,
-          lastUpdated: new Date(Date.now() - 1000 * 60 * 60).toISOString(),
-        },
-        {
-          id: '4',
-          menuItemId: 'item-4',
-          menuItemName: 'Beef Burger',
-          categoryName: 'Main Courses',
-          quantity: 0,
-          lowStockThreshold: 20,
-          isSoldOut: true,
-          lastUpdated: new Date(Date.now() - 1000 * 60 * 120).toISOString(),
-        },
-        {
-          id: '5',
-          menuItemId: 'item-5',
-          menuItemName: 'Caesar Salad',
-          categoryName: 'Salads',
-          quantity: 35,
-          lowStockThreshold: 15,
-          isSoldOut: false,
-          lastUpdated: new Date(Date.now() - 1000 * 60 * 15).toISOString(),
-        },
-        {
+    try {
+      const response = await apiClient.getInventory();
+      if (response.success && response.data) {
+        const items = Array.isArray(response.data) ? response.data : response.data.items || [];
+        setInventory(items.map((item: any) => ({
+          id: item.id,
+          menuItemId: item.menuItemId || item.id,
+          menuItemName: item.menuItem?.name || item.name || 'Unknown Item',
+          categoryName: item.menuItem?.category?.name || item.category || 'Uncategorized',
+          quantity: item.quantity || 0,
+          lowStockThreshold: item.lowStockThreshold || 10,
+          isSoldOut: item.quantity === 0 || item.isSoldOut || false,
+          lastUpdated: item.updatedAt || item.lastUpdated || new Date().toISOString(),
+        })));
+      }
+    } catch (error) {
+      console.error('Failed to load inventory:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
           id: '6',
           menuItemId: 'item-6',
           menuItemName: 'Chocolate Lava Cake',
@@ -127,42 +95,85 @@ export default function InventoryPage() {
     return true;
   });
 
-  const toggleSoldOut = (itemId: string) => {
+  const toggleSoldOut = async (itemId: string) => {
+    const item = inventory.find(i => i.id === itemId);
+    if (!item) return;
+
     setInventory((prev) =>
       prev.map((item) =>
         item.id === itemId
-          ? { ...item, isSoldOut: !item.isSoldOut, updating: true, lastUpdated: new Date().toISOString() }
+          ? { ...item, updating: true }
           : item
       )
     );
 
-    // Simulate API call
-    setTimeout(() => {
+    try {
+      const response = await apiClient.updateInventory(item.menuItemId, {
+        isSoldOut: !item.isSoldOut,
+      });
+
+      if (response.success) {
+        setInventory((prev) =>
+          prev.map((item) =>
+            item.id === itemId
+              ? { ...item, isSoldOut: !item.isSoldOut, updating: false, lastUpdated: new Date().toISOString() }
+              : item
+          )
+        );
+      } else {
+        setInventory((prev) => prev.map((item) => (item.id === itemId ? { ...item, updating: false } : item)));
+        alert('Failed to update sold out status');
+      }
+    } catch (error) {
+      console.error('Error updating sold out status:', error);
       setInventory((prev) => prev.map((item) => (item.id === itemId ? { ...item, updating: false } : item)));
-    }, 800);
+      alert('Failed to update sold out status');
+    }
   };
 
-  const updateQuantity = (itemId: string, newQuantity: number) => {
+  const updateQuantity = async (itemId: string, newQuantity: number) => {
     if (newQuantity < 0) return;
+
+    const item = inventory.find(i => i.id === itemId);
+    if (!item) return;
 
     setInventory((prev) =>
       prev.map((item) =>
         item.id === itemId
-          ? {
-              ...item,
-              quantity: newQuantity,
-              isSoldOut: newQuantity === 0,
-              updating: true,
-              lastUpdated: new Date().toISOString(),
-            }
+          ? { ...item, updating: true }
           : item
       )
     );
 
-    // Simulate API call
-    setTimeout(() => {
+    try {
+      const response = await apiClient.updateInventory(item.menuItemId, {
+        quantity: newQuantity,
+        isSoldOut: newQuantity === 0,
+      });
+
+      if (response.success) {
+        setInventory((prev) =>
+          prev.map((item) =>
+            item.id === itemId
+              ? {
+                  ...item,
+                  quantity: newQuantity,
+                  isSoldOut: newQuantity === 0,
+                  updating: false,
+                  lastUpdated: new Date().toISOString(),
+                }
+              : item
+          )
+        );
+      } else {
+        setInventory((prev) => prev.map((item) => (item.id === itemId ? { ...item, updating: false } : item)));
+        alert('Failed to update quantity');
+      }
+    } catch (error) {
+      console.error('Error updating quantity:', error);
       setInventory((prev) => prev.map((item) => (item.id === itemId ? { ...item, updating: false } : item)));
-    }, 800);
+      alert('Failed to update quantity');
+    }
   };
 
   const toggleSelectItem = (itemId: string) => {

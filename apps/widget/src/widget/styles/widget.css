@@ -2874,6 +2874,72 @@
   margin: 0 0 16px 0;
 }
 
+/* QR Code Section */
+.qr-code-section {
+  margin-bottom: 16px;
+}
+
+.qr-toggle-btn {
+  width: 100%;
+  padding: 12px;
+  background: #f3f4f6;
+  color: #374151;
+  border: 2px solid #e5e7eb;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  box-sizing: border-box;
+}
+
+.qr-toggle-btn:hover {
+  background: #e5e7eb;
+  border-color: #d1d5db;
+  transform: translateY(-1px);
+}
+
+.qr-code-wrapper {
+  margin-top: 16px;
+  padding: 20px;
+  background: white;
+  border: 2px solid #e5e7eb;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.qr-code-canvas {
+  display: block;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.qr-code-hint {
+  font-size: 12px;
+  color: #6b7280;
+  margin: 0;
+  font-weight: 500;
+}
+
 .payment-button {
   display: flex;
   align-items: center;
@@ -2898,6 +2964,19 @@
 .payment-button:hover {
   transform: translateY(-2px);
   box-shadow: 0 8px 24px rgba(102, 126, 234, 0.4);
+}
+
+.payment-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+  background: #94a3b8;
+  box-shadow: none;
+}
+
+.payment-button:disabled:hover {
+  transform: none;
+  box-shadow: none;
 }
 
 .copy-link-btn {
@@ -3156,6 +3235,190 @@
 .send-btn svg {
   width: 20px;
   height: 20px;
+}
+
+/* ============================================
+   Notification Opt-In Component
+   ============================================ */
+.notification-optin-card {
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border: 1px solid #e2e8f0;
+  border-radius: var(--radius-lg);
+  margin: var(--space-md) 0;
+  overflow: hidden;
+  transition: all var(--transition-base);
+}
+
+.notification-optin-card:hover {
+  border-color: #cbd5e1;
+  box-shadow: var(--shadow-sm);
+}
+
+.notification-optin-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-md);
+  cursor: pointer;
+  user-select: none;
+  transition: background var(--transition-fast);
+}
+
+.notification-optin-header:hover {
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.notification-optin-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  font-weight: 600;
+  font-size: var(--font-sm);
+  color: #334155;
+}
+
+.notification-icon {
+  font-size: 20px;
+}
+
+.notification-toggle {
+  color: #94a3b8;
+  font-size: var(--font-xs);
+  transition: transform var(--transition-fast);
+}
+
+.notification-optin-content {
+  padding: 0 var(--space-md) var(--space-md) var(--space-md);
+  animation: slideDown var(--transition-base);
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.notification-option {
+  margin-bottom: var(--space-md);
+}
+
+.notification-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  cursor: pointer;
+  padding: var(--space-sm);
+  border-radius: var(--radius-md);
+  transition: background var(--transition-fast);
+}
+
+.notification-checkbox-label:hover {
+  background: rgba(255, 255, 255, 0.6);
+}
+
+.notification-checkbox-label input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: var(--widget-primary);
+}
+
+.notification-label-text {
+  font-size: var(--font-sm);
+  color: #475569;
+  font-weight: 500;
+}
+
+.notification-input-group {
+  margin-top: var(--space-sm);
+  margin-left: 30px;
+}
+
+.notification-input {
+  width: 100%;
+  padding: var(--space-sm);
+  border: 1px solid #cbd5e1;
+  border-radius: var(--radius-md);
+  font-size: var(--font-sm);
+  color: #1e293b;
+  background: white;
+  transition: all var(--transition-fast);
+}
+
+.notification-input:focus {
+  outline: none;
+  border-color: var(--widget-primary);
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.notification-input.error {
+  border-color: #ef4444;
+}
+
+.notification-input.error:focus {
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+}
+
+.notification-error {
+  display: block;
+  margin-top: 4px;
+  font-size: var(--font-xs);
+  color: #ef4444;
+}
+
+.notification-existing {
+  margin-top: var(--space-xs);
+  margin-left: 30px;
+  font-size: var(--font-xs);
+  color: #64748b;
+  font-style: italic;
+}
+
+.notification-footer {
+  margin-top: var(--space-md);
+  padding-top: var(--space-md);
+  border-top: 1px solid #e2e8f0;
+}
+
+.notification-disclaimer {
+  font-size: var(--font-xs);
+  color: #64748b;
+  margin: 0 0 var(--space-sm) 0;
+  text-align: center;
+}
+
+.notification-confirm-btn {
+  width: 100%;
+  padding: var(--space-sm) var(--space-md);
+  background: var(--widget-gradient);
+  color: white;
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: var(--font-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  box-shadow: var(--shadow-sm);
+}
+
+.notification-confirm-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.notification-confirm-btn:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: var(--shadow-sm);
+}
+
+.notification-confirm-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 /* ============================================
