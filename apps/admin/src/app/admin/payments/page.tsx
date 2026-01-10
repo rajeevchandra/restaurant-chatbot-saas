@@ -16,7 +16,7 @@ import {
   Shield,
   Loader2,
 } from 'lucide-react';
-import { apiClient } from '@/lib/apiClient';
+import { getApiClient } from '@/lib/apiClient';
 
 type Step = 1 | 2 | 3 | 4;
 
@@ -57,7 +57,7 @@ export default function PaymentsPage() {
 
   const loadPaymentConfig = async () => {
     try {
-      const response = await apiClient.getPaymentConfig();
+      const response = await getApiClient().getPaymentConfig();
       if (response.success && response.data) {
         const config = response.data;
         if (config.provider) {
@@ -79,7 +79,7 @@ export default function PaymentsPage() {
     if (!canProceedToStep3) return;
     
     try {
-      const response = await apiClient.updatePaymentConfig({
+      const response = await getApiClient().updatePaymentConfig({
         provider: selectedProvider,
         publicKey: credentials.publicKey,
         secretKey: credentials.secretKey,
@@ -100,7 +100,7 @@ export default function PaymentsPage() {
     setConnectionStatus('testing');
     
     try {
-      const response = await apiClient.updatePaymentConfig({
+      const response = await getApiClient().updatePaymentConfig({
         provider: selectedProvider,
         publicKey: credentials.publicKey,
         secretKey: credentials.secretKey,
