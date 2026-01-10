@@ -89,27 +89,27 @@ export class ApiClient {
   }
 
   async getMenuItems() {
-    return this.request('/api/menu/items', {
+    return this.request('/api/v1/admin/menu/items', {
       method: 'GET',
     });
   }
 
   async createMenuItem(data: any) {
-    return this.request('/api/menu/items', {
+    return this.request('/api/v1/admin/menu/items', {
       method: 'POST',
       body: JSON.stringify(data),
     });
   }
 
   async updateMenuItem(id: string, data: any) {
-    return this.request(`/api/menu/items/${id}`, {
+    return this.request(`/api/v1/admin/menu/items/${id}`, {
       method: 'PATCH',
       body: JSON.stringify(data),
     });
   }
 
   async deleteMenuItem(id: string) {
-    return this.request(`/api/menu/items/${id}`, {
+    return this.request(`/api/v1/admin/menu/items/${id}`, {
       method: 'DELETE',
     });
   }
@@ -118,13 +118,13 @@ export class ApiClient {
 
   async getOrders(params?: { status?: string; page?: number; limit?: number }) {
     const query = new URLSearchParams(params as any).toString();
-    return this.request<PaginatedResponse<any>>(`/api/orders?${query}`, {
+    return this.request<PaginatedResponse<any>>(`/api/v1/admin/orders?${query}`, {
       method: 'GET',
     });
   }
 
   async getOrder(id: string) {
-    return this.request(`/api/orders/${id}`, {
+    return this.request(`/api/v1/admin/orders/${id}`, {
       method: 'GET',
     });
   }
@@ -136,7 +136,7 @@ export class ApiClient {
   }
 
   async createOrder(data: any) {
-    return this.request('/api/orders', {
+    return this.request('/api/v1/admin/orders', {
       method: 'POST',
       body: JSON.stringify(data),
     });
@@ -150,14 +150,14 @@ export class ApiClient {
   }
 
   async updateOrderStatus(id: string, status: string) {
-    return this.request(`/api/orders/${id}/status`, {
+    return this.request(`/api/v1/admin/orders/${id}/status`, {
       method: 'PATCH',
       body: JSON.stringify({ status }),
     });
   }
 
   async cancelOrder(id: string) {
-    return this.request(`/api/orders/${id}/cancel`, {
+    return this.request(`/api/v1/admin/orders/${id}/cancel`, {
       method: 'POST',
     });
   }
@@ -188,13 +188,13 @@ export class ApiClient {
   }
 
   async getPaymentConfig() {
-    return this.request('/api/payments/config', {
+    return this.request('/api/v1/admin/payments/config', {
       method: 'GET',
     });
   }
 
   async updatePaymentConfig(data: any) {
-    return this.request('/api/payments/config', {
+    return this.request('/api/v1/admin/payments/config', {
       method: 'PUT',
       body: JSON.stringify(data),
     });

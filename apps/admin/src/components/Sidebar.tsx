@@ -2,7 +2,6 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useRouter } from 'next/navigation';
 import {
   LayoutDashboard,
   ShoppingBag,
@@ -44,12 +43,10 @@ const navGroups = [
 
 export default function Sidebar() {
   const pathname = usePathname();
-  const router = useRouter();
   const [collapsed, setCollapsed] = useState(false);
 
   const handleLogout = () => {
-    logout();
-    router.push('/login');
+    logout(); // logout() now handles the redirect
   };
 
   return (

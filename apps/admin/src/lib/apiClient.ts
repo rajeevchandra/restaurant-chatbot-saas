@@ -1,5 +1,7 @@
+
 import { getApiClient } from './auth'
 
-export const apiClient = getApiClient()
+// Always use the latest token for every call
+export { getApiClient }
 
 export * from './auth'

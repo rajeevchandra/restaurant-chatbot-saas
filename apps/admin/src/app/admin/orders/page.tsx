@@ -19,7 +19,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { formatCurrency, formatDateTime } from '@/lib/utils';
-import { apiClient } from '@/lib/apiClient';
+import { getApiClient } from '@/lib/apiClient';
 
 type OrderStatus = 'CREATED' | 'PAID' | 'ACCEPTED' | 'PREPARING' | 'READY' | 'COMPLETED' | 'CANCELLED';
 type OrderType = 'PICKUP' | 'DELIVERY';
@@ -85,7 +85,7 @@ export default function OrdersPage() {
   const loadOrders = async () => {
     setLoading(true);
     try {
-      const response = await apiClient.getOrders({ limit: 100 });
+      const response = await getApiClient().getOrders({ limit: 100 });
       if (response.success && response.data) {
         const fetchedOrders = response.data.items || response.data;
         setOrders(fetchedOrders);
@@ -112,29 +112,42 @@ export default function OrdersPage() {
   });
 
   const updateOrderStatus = async (orderId: string, newStatus: OrderStatus) => {
+    // 🚀 OPTIMIZED: Optimistic UI update
+    const previousOrders = [...orders];
+    
+    // Update UI immediately
+    setOrders(prevOrders => 
+      prevOrders.map(order => 
+        order.id === orderId ? { ...order, status: newStatus } : order
+      )
+    );
+
     try {
-      const response = await apiClient.updateOrderStatus(orderId, newStatus);
+      const response = await getApiClient().updateOrderStatus(orderId, newStatus);
       if (response.success) {
-        // Refresh orders list
+        // Confirm update with server data
         await loadOrders();
         
         // Update selected order if it's the one being changed
         if (selectedOrder?.id === orderId) {
-          setSelectedOrder(null); // Close drawer
+          setSelectedOrder(null);
         }
       } else {
-        console.error('Failed to update order status:', response.error);
+        // Revert on failure
+        setOrders(previousOrders);
         alert('Failed to update order status');
       }
     } catch (error) {
-      console.error('Error updating order status:', error);
+      // Revert on error
+      setOrders(previousOrders);
+      console.error('Failed to update order status:', error);
       alert('Failed to update order status');
     }
   };
 
   const cancelOrder = async (orderId: string) => {
     try {
-      const response = await apiClient.cancelOrder(orderId);
+      const response = await getApiClient().cancelOrder(orderId);
       if (response.success) {
         await loadOrders();
         setShowCancelDialog(false);

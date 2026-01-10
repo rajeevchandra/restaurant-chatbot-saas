@@ -96,6 +96,20 @@ export default function Widget({
     }
   }, [restaurantSlug])
 
+  // 🚀 OPTIMIZED: Send welcome message immediately when widget opens
+  useEffect(() => {
+    if (isOpen && messages.length === 0) {
+      const welcomeMsg: Message = {
+        id: Date.now().toString(),
+        text: `Welcome to ${displayName}! 👋\n\nHow can I help you today?`,
+        sender: 'bot',
+        timestamp: new Date(),
+      }
+      setMessages([welcomeMsg])
+      setQuickReplies(['View Menu', 'Check Order Status', 'Contact Support'])
+    }
+  }, [isOpen, displayName])
+
   // Save cart to localStorage whenever it changes
   useEffect(() => {
     saveCart(restaurantSlug, cart)

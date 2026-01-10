@@ -17,7 +17,7 @@ import {
   UtensilsCrossed,
 } from 'lucide-react';
 import { formatDateTime } from '@/lib/utils';
-import { apiClient } from '@/lib/apiClient';
+import { getApiClient } from '@/lib/apiClient';
 
 interface InventoryItem {
   id: string;
@@ -46,7 +46,7 @@ export default function InventoryPage() {
   const loadInventory = async () => {
     setLoading(true);
     try {
-      const response = await apiClient.getInventory();
+      const response = await getApiClient().getInventory();
       if (response.success && response.data) {
         const items = Array.isArray(response.data) ? response.data : response.data.items || [];
         setInventory(items.map((item: any) => ({
@@ -65,19 +65,6 @@ export default function InventoryPage() {
     } finally {
       setLoading(false);
     }
-  };
-          id: '6',
-          menuItemId: 'item-6',
-          menuItemName: 'Chocolate Lava Cake',
-          categoryName: 'Desserts',
-          quantity: 0,
-          lowStockThreshold: 8,
-          isSoldOut: true,
-          lastUpdated: new Date(Date.now() - 1000 * 60 * 90).toISOString(),
-        },
-      ]);
-      setLoading(false);
-    }, 600);
   };
 
   const categories = Array.from(new Set(inventory.map((item) => item.categoryName)));
@@ -108,7 +95,7 @@ export default function InventoryPage() {
     );
 
     try {
-      const response = await apiClient.updateInventory(item.menuItemId, {
+      const response = await getApiClient().updateInventory(item.menuItemId, {
         isSoldOut: !item.isSoldOut,
       });
 
@@ -146,7 +133,7 @@ export default function InventoryPage() {
     );
 
     try {
-      const response = await apiClient.updateInventory(item.menuItemId, {
+      const response = await getApiClient().updateInventory(item.menuItemId, {
         quantity: newQuantity,
         isSoldOut: newQuantity === 0,
       });

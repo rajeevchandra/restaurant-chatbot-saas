@@ -19,7 +19,7 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
-import { apiClient } from '@/lib/apiClient';
+import { getApiClient } from '@/lib/apiClient';
 
 interface MenuItemOption {
   id: string;
@@ -81,7 +81,7 @@ export default function MenuPage() {
   const loadMenu = async () => {
     setLoading(true);
     try {
-      const response = await apiClient.getMenuItems();
+      const response = await getApiClient().getMenuItems();
       if (response.success && response.data) {
         // Group items by category
         const items = Array.isArray(response.data) ? response.data : response.data.items || [];
@@ -111,21 +111,6 @@ export default function MenuPage() {
     } finally {
       setLoading(false);
     }
-  };
-              id: '5',
-              name: 'Chocolate Lava Cake',
-              description: 'Warm chocolate cake with molten center',
-              price: 8.99,
-              isAvailable: true,
-              categoryId: '3',
-            },
-          ],
-        },
-      ];
-      setCategories(mockCategories);
-      setSelectedCategory(mockCategories[0]?.id || null);
-      setLoading(false);
-    }, 600);
   };
 
   const selectedCategoryData = categories.find((c) => c.id === selectedCategory);
@@ -194,9 +179,9 @@ export default function MenuPage() {
     try {
       let response;
       if (editingItem) {
-        response = await apiClient.updateMenuItem(editingItem.id, itemData);
+        response = await getApiClient().updateMenuItem(editingItem.id, itemData);
       } else {
-        response = await apiClient.createMenuItem(itemData);
+        response = await getApiClient().createMenuItem(itemData);
       }
 
       if (response.success) {
@@ -218,7 +203,7 @@ export default function MenuPage() {
     if (!confirm('Are you sure you want to delete this item?')) return;
     
     try {
-      const response = await apiClient.deleteMenuItem(itemId);
+      const response = await getApiClient().deleteMenuItem(itemId);
       if (response.success) {
         setToastMessage('Item deleted successfully!');
         setShowToast(true);

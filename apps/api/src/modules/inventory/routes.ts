@@ -8,14 +8,20 @@ const router = Router();
 
 // Get all inventory
 router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
-  const inventory = await prisma.inventory.findMany({
-    where: { restaurantId: req.restaurantId },
-    include: {
-      menuItem: { select: { name: true, isAvailable: true } },
-    },
-  });
-
-  res.json({ success: true, data: inventory });
+  console.log('INVENTORY ROUTE: about to query inventory. req.restaurantId =', req.restaurantId);
+  try {
+    const inventory = await prisma.inventory.findMany({
+      where: { restaurantId: req.restaurantId },
+      include: {
+        menuItem: { select: { name: true, isAvailable: true } },
+      },
+    });
+    console.log('INVENTORY ROUTE: query complete, found', inventory.length, 'items');
+    res.json({ success: true, data: inventory });
+  } catch (err) {
+    console.error('INVENTORY ROUTE: error during query', err);
+    res.status(500).json({ error: 'Failed to fetch inventory', details: err?.message });
+  }
 });
 
 // Update inventory quantity and threshold

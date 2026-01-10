@@ -27,7 +27,12 @@ router.post('/login', validate(loginSchema), async (req, res: Response) => {
   }
 
   const accessToken = jwt.sign(
-    { userId: user.id, restaurantId: user.restaurantId },
+    {
+      userId: user.id,
+      restaurantId: user.restaurantId,
+      role: user.role,
+      email: user.email
+    },
     config.jwt.secret as jwt.Secret,
     { expiresIn: config.jwt.accessTokenExpiry } as SignOptions
   );

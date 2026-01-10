@@ -3,14 +3,10 @@ import Cookies from 'js-cookie'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'
 
-let apiClient: ApiClient | null = null
-
 export function getApiClient() {
-  if (!apiClient) {
-    const token = Cookies.get('accessToken')
-    apiClient = new ApiClient(API_URL, token)
-  }
-  return apiClient
+  // Always use the latest token from the cookie
+  const token = Cookies.get('accessToken');
+  return new ApiClient(API_URL, token);
 }
 
 export async function login(email: string, password: string) {
@@ -20,7 +16,6 @@ export async function login(email: string, password: string) {
   if (response.success && response.data) {
     Cookies.set('accessToken', response.data.accessToken, { expires: 7 })
     Cookies.set('user', JSON.stringify(response.data.user), { expires: 7 })
-    apiClient = new ApiClient(API_URL, response.data.accessToken)
     return response.data
   } else {
     throw new Error(response.error || 'Login failed')
@@ -28,9 +23,14 @@ export async function login(email: string, password: string) {
 }
 
 export function logout() {
-  Cookies.remove('accessToken')
-  Cookies.remove('user')
-  apiClient = null
+  // Remove cookies with explicit path to ensure they're actually deleted
+  Cookies.remove('accessToken', { path: '/' })
+  Cookies.remove('user', { path: '/' })
+  // No need to clear apiClient, always use latest token now
+  // Force a hard reload to clear any cached state
+  if (typeof window !== 'undefined') {
+    window.location.href = '/login'
+  }
 }
 
 export function getUser() {
