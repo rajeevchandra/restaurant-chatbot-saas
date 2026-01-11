@@ -1,4 +1,5 @@
-import { PaymentProvider } from '@prisma/client';
+import { PaymentProvider } from '@restaurant-saas/shared';
+import { Prisma } from '@prisma/client';
 import Stripe from 'stripe';
 import { Client as SquareClient, Environment } from 'square';
 import crypto from 'crypto';

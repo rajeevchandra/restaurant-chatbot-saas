@@ -1,5 +1,6 @@
 import { z } from 'zod';
-import { PaymentProvider } from '@prisma/client';
+import { Prisma } from '@prisma/client';
+import { PaymentProvider } from '@restaurant-saas/shared';
 
 /**
  * Validation schemas for payment endpoints

@@ -1,4 +1,5 @@
-import { PaymentProvider } from '@prisma/client';
+import { Prisma } from '@prisma/client';
+import { PaymentProvider } from '@restaurant-saas/shared';
 import { IPaymentProvider } from '../payments.types';
 import { StripeProvider } from './StripeProvider';
 import { SquareProvider } from './SquareProvider';

@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { AppError } from '../lib/errors';
 import { createRequestLogger } from '../lib/logger';
 import { ZodError } from 'zod';
-import { Prisma } from '@prisma/client';
+import { PrismaClientKnownRequestError, PrismaClientValidationError } from '@prisma/client/runtime/library';
 import { errorsTotal } from '../lib/metrics';
 import { config } from '../config';
 
@@ -79,7 +79,7 @@ export function errorHandler(
   }
 
   // Handle Prisma errors
-  if (err instanceof Prisma.PrismaClientKnownRequestError) {
+  if (err instanceof PrismaClientKnownRequestError) {
     logger.error({
       msg: 'Database error',
       code: err.code,
@@ -124,7 +124,7 @@ export function errorHandler(
   }
 
   // Handle Prisma validation errors
-  if (err instanceof Prisma.PrismaClientValidationError) {
+  if (err instanceof PrismaClientValidationError) {
     logger.error({
       msg: 'Prisma validation error',
       error: err.message,

@@ -1,4 +1,5 @@
-import { PaymentProvider, PaymentStatus, Payment } from '@prisma/client';
+import { Prisma } from '@prisma/client';
+import { PaymentStatus, PaymentProvider, Payment } from '@restaurant-saas/shared';
 
 /**
  * Payment DTOs and Types

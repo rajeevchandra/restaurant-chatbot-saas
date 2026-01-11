@@ -1,4 +1,4 @@
-import { BotSessionState } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 
 /**
  * Bot DTOs and Types

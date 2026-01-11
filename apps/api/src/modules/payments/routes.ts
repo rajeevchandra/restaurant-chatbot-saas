@@ -1,6 +1,7 @@
 import { Router, Response } from 'express';
 import prisma from '../../db/prisma';
 import { authenticate, authorize, AuthRequest } from '../../middleware/auth';
+import { UserRole } from '@restaurant-saas/shared';
 import { validate } from '../../middleware/validate';
 import { createPaymentIntentSchema } from '@restaurant-saas/shared';
 import { createPaymentAdapter } from './adapter';
@@ -105,7 +106,7 @@ router.get('/config', authenticate, async (req: AuthRequest, res: Response) => {
 router.put(
   '/config',
   authenticate,
-  authorize('OWNER'),
+  authorize(UserRole.OWNER),
   async (req: AuthRequest, res: Response) => {
     const { provider, publicKey, secretKey, webhookSecret, metadata } = req.body;
 

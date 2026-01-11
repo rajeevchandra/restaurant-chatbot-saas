@@ -7,7 +7,8 @@ import {
   CreateCheckoutSessionParams,
   WebhookRequest,
 } from '../payments.types';
-import { Payment } from '@prisma/client';
+import { Prisma } from '@prisma/client';
+import { Payment } from '@restaurant-saas/shared';
 
 /**
  * Base abstract class for payment providers

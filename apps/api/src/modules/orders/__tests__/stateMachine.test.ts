@@ -6,116 +6,117 @@ import {
   VALID_TRANSITIONS,
   CUSTOMER_CANCELLABLE_STATUSES,
 } from '../stateMachine';
-import { OrderStatus } from '@prisma/client';
+import { Prisma } from '@prisma/client';
+import { OrderStatus } from '@restaurant-saas/shared';
 
 describe('Order State Machine', () => {
   describe('isValidTransition', () => {
     test('should allow valid transitions', () => {
       // CREATED -> PAYMENT_PENDING
-      expect(isValidTransition('CREATED', 'PAYMENT_PENDING')).toBe(true);
+        expect(isValidTransition(OrderStatus.CREATED, OrderStatus.PAYMENT_PENDING)).toBe(true);
       
       // CREATED -> CANCELLED
-      expect(isValidTransition('CREATED', 'CANCELLED')).toBe(true);
+        expect(isValidTransition(OrderStatus.CREATED, OrderStatus.CANCELLED)).toBe(true);
       
       // PAYMENT_PENDING -> PAID
-      expect(isValidTransition('PAYMENT_PENDING', 'PAID')).toBe(true);
+        expect(isValidTransition(OrderStatus.PAYMENT_PENDING, OrderStatus.PAID)).toBe(true);
       
       // PAID -> ACCEPTED
-      expect(isValidTransition('PAID', 'ACCEPTED')).toBe(true);
+        expect(isValidTransition(OrderStatus.PAID, OrderStatus.ACCEPTED)).toBe(true);
       
       // ACCEPTED -> PREPARING
-      expect(isValidTransition('ACCEPTED', 'PREPARING')).toBe(true);
+        expect(isValidTransition(OrderStatus.ACCEPTED, OrderStatus.PREPARING)).toBe(true);
       
       // PREPARING -> READY
-      expect(isValidTransition('PREPARING', 'READY')).toBe(true);
+        expect(isValidTransition(OrderStatus.PREPARING, OrderStatus.READY)).toBe(true);
       
       // READY -> COMPLETED
-      expect(isValidTransition('READY', 'COMPLETED')).toBe(true);
+        expect(isValidTransition(OrderStatus.READY, OrderStatus.COMPLETED)).toBe(true);
     });
 
     test('should reject invalid transitions', () => {
       // Can't go from CREATED directly to ACCEPTED
-      expect(isValidTransition('CREATED', 'ACCEPTED')).toBe(false);
+        expect(isValidTransition(OrderStatus.CREATED, OrderStatus.ACCEPTED)).toBe(false);
       
       // Can't go from CREATED directly to COMPLETED
-      expect(isValidTransition('CREATED', 'COMPLETED')).toBe(false);
+        expect(isValidTransition(OrderStatus.CREATED, OrderStatus.COMPLETED)).toBe(false);
       
       // Can't go backwards from COMPLETED
-      expect(isValidTransition('COMPLETED', 'READY')).toBe(false);
-      expect(isValidTransition('COMPLETED', 'PREPARING')).toBe(false);
+        expect(isValidTransition(OrderStatus.COMPLETED, OrderStatus.READY)).toBe(false);
+      expect(isValidTransition(OrderStatus.COMPLETED, OrderStatus.PREPARING)).toBe(false);
       
       // Can't transition from CANCELLED
-      expect(isValidTransition('CANCELLED', 'ACCEPTED')).toBe(false);
+        expect(isValidTransition(OrderStatus.CANCELLED, OrderStatus.ACCEPTED)).toBe(false);
       
       // Can't skip PREPARING step
-      expect(isValidTransition('ACCEPTED', 'READY')).toBe(false);
+        expect(isValidTransition(OrderStatus.ACCEPTED, OrderStatus.READY)).toBe(false);
       
       // Can't skip READY step
-      expect(isValidTransition('PREPARING', 'COMPLETED')).toBe(false);
+        expect(isValidTransition(OrderStatus.PREPARING, OrderStatus.COMPLETED)).toBe(false);
     });
 
     test('should handle terminal states correctly', () => {
       // COMPLETED is terminal
-      expect(getValidNextStatuses('COMPLETED')).toEqual([]);
+        expect(getValidNextStatuses(OrderStatus.COMPLETED)).toEqual([]);
       
       // CANCELLED is terminal
-      expect(getValidNextStatuses('CANCELLED')).toEqual([]);
+        expect(getValidNextStatuses(OrderStatus.CANCELLED)).toEqual([]);
     });
 
     test('should allow cancellation from early states', () => {
-      expect(isValidTransition('CREATED', 'CANCELLED')).toBe(true);
-      expect(isValidTransition('PAYMENT_PENDING', 'CANCELLED')).toBe(true);
-      expect(isValidTransition('PAID', 'CANCELLED')).toBe(true);
+        expect(isValidTransition(OrderStatus.CREATED, OrderStatus.CANCELLED)).toBe(true);
+      expect(isValidTransition(OrderStatus.PAYMENT_PENDING, OrderStatus.CANCELLED)).toBe(true);
+      expect(isValidTransition(OrderStatus.PAID, OrderStatus.CANCELLED)).toBe(true);
     });
 
     test('should not allow cancellation from late states', () => {
-      expect(isValidTransition('ACCEPTED', 'CANCELLED')).toBe(false);
-      expect(isValidTransition('PREPARING', 'CANCELLED')).toBe(false);
-      expect(isValidTransition('READY', 'CANCELLED')).toBe(false);
-      expect(isValidTransition('COMPLETED', 'CANCELLED')).toBe(false);
+        expect(isValidTransition(OrderStatus.ACCEPTED, OrderStatus.CANCELLED)).toBe(false);
+      expect(isValidTransition(OrderStatus.PREPARING, OrderStatus.CANCELLED)).toBe(false);
+      expect(isValidTransition(OrderStatus.READY, OrderStatus.CANCELLED)).toBe(false);
+      expect(isValidTransition(OrderStatus.COMPLETED, OrderStatus.CANCELLED)).toBe(false);
     });
   });
 
   describe('canCustomerCancel', () => {
     test('should allow customer cancellation for early states', () => {
-      expect(canCustomerCancel('CREATED')).toBe(true);
-      expect(canCustomerCancel('PAYMENT_PENDING')).toBe(true);
-      expect(canCustomerCancel('PAID')).toBe(true);
+        expect(canCustomerCancel(OrderStatus.CREATED)).toBe(true);
+      expect(canCustomerCancel(OrderStatus.PAYMENT_PENDING)).toBe(true);
+      expect(canCustomerCancel(OrderStatus.PAID)).toBe(true);
     });
 
     test('should not allow customer cancellation for late states', () => {
-      expect(canCustomerCancel('ACCEPTED')).toBe(false);
-      expect(canCustomerCancel('PREPARING')).toBe(false);
-      expect(canCustomerCancel('READY')).toBe(false);
-      expect(canCustomerCancel('COMPLETED')).toBe(false);
-      expect(canCustomerCancel('CANCELLED')).toBe(false);
+      expect(canCustomerCancel(OrderStatus.ACCEPTED)).toBe(false);
+      expect(canCustomerCancel(OrderStatus.PREPARING)).toBe(false);
+      expect(canCustomerCancel(OrderStatus.READY)).toBe(false);
+      expect(canCustomerCancel(OrderStatus.COMPLETED)).toBe(false);
+      expect(canCustomerCancel(OrderStatus.CANCELLED)).toBe(false);
     });
   });
 
   describe('getValidNextStatuses', () => {
     test('should return correct next statuses for each state', () => {
-      expect(getValidNextStatuses('CREATED')).toEqual(['PAYMENT_PENDING', 'CANCELLED']);
-      expect(getValidNextStatuses('PAYMENT_PENDING')).toEqual(['PAID', 'CANCELLED']);
-      expect(getValidNextStatuses('PAID')).toEqual(['ACCEPTED', 'CANCELLED']);
-      expect(getValidNextStatuses('ACCEPTED')).toEqual(['PREPARING']);
-      expect(getValidNextStatuses('PREPARING')).toEqual(['READY']);
-      expect(getValidNextStatuses('READY')).toEqual(['COMPLETED']);
-      expect(getValidNextStatuses('COMPLETED')).toEqual([]);
-      expect(getValidNextStatuses('CANCELLED')).toEqual([]);
+        expect(getValidNextStatuses(OrderStatus.CREATED)).toEqual(['PAYMENT_PENDING', 'CANCELLED']);
+      expect(getValidNextStatuses(OrderStatus.PAYMENT_PENDING)).toEqual([OrderStatus.PAID, OrderStatus.CANCELLED]);
+      expect(getValidNextStatuses(OrderStatus.PAID)).toEqual([OrderStatus.ACCEPTED, OrderStatus.CANCELLED]);
+      expect(getValidNextStatuses(OrderStatus.ACCEPTED)).toEqual([OrderStatus.PREPARING]);
+      expect(getValidNextStatuses(OrderStatus.PREPARING)).toEqual([OrderStatus.READY]);
+      expect(getValidNextStatuses(OrderStatus.READY)).toEqual([OrderStatus.COMPLETED]);
+      expect(getValidNextStatuses(OrderStatus.COMPLETED)).toEqual([]);
+      expect(getValidNextStatuses(OrderStatus.CANCELLED)).toEqual([]);
     });
   });
 
   describe('State machine completeness', () => {
     test('should have transitions defined for all statuses', () => {
       const allStatuses: OrderStatus[] = [
-        'CREATED',
-        'PAYMENT_PENDING',
-        'PAID',
-        'ACCEPTED',
-        'PREPARING',
-        'READY',
-        'COMPLETED',
-        'CANCELLED',
+        OrderStatus.CREATED,
+        OrderStatus.PAYMENT_PENDING,
+        OrderStatus.PAID,
+        OrderStatus.ACCEPTED,
+        OrderStatus.PREPARING,
+        OrderStatus.READY,
+        OrderStatus.COMPLETED,
+        OrderStatus.CANCELLED,
       ];
 
       allStatuses.forEach((status) => {
@@ -126,14 +127,14 @@ describe('Order State Machine', () => {
 
     test('should ensure cancellable statuses are a subset of all statuses', () => {
       const allStatuses: OrderStatus[] = [
-        'CREATED',
-        'PAYMENT_PENDING',
-        'PAID',
-        'ACCEPTED',
-        'PREPARING',
-        'READY',
-        'COMPLETED',
-        'CANCELLED',
+        OrderStatus.CREATED,
+        OrderStatus.PAYMENT_PENDING,
+        OrderStatus.PAID,
+        OrderStatus.ACCEPTED,
+        OrderStatus.PREPARING,
+        OrderStatus.READY,
+        OrderStatus.COMPLETED,
+        OrderStatus.CANCELLED,
       ];
 
       CUSTOMER_CANCELLABLE_STATUSES.forEach((status: OrderStatus) => {
@@ -142,21 +143,21 @@ describe('Order State Machine', () => {
     });
 
     test('should ensure terminal states have no outgoing transitions', () => {
-      expect(VALID_TRANSITIONS['COMPLETED']).toEqual([]);
-      expect(VALID_TRANSITIONS['CANCELLED']).toEqual([]);
+      expect(VALID_TRANSITIONS[OrderStatus.COMPLETED]).toEqual([]);
+      expect(VALID_TRANSITIONS[OrderStatus.CANCELLED]).toEqual([]);
     });
   });
 
   describe('State machine flow scenarios', () => {
     test('successful order flow', () => {
       const flow: OrderStatus[] = [
-        'CREATED',
-        'PAYMENT_PENDING',
-        'PAID',
-        'ACCEPTED',
-        'PREPARING',
-        'READY',
-        'COMPLETED',
+        OrderStatus.CREATED,
+        OrderStatus.PAYMENT_PENDING,
+        OrderStatus.PAID,
+        OrderStatus.ACCEPTED,
+        OrderStatus.PREPARING,
+        OrderStatus.READY,
+        OrderStatus.COMPLETED,
       ];
 
       for (let i = 0; i < flow.length - 1; i++) {
@@ -165,20 +166,20 @@ describe('Order State Machine', () => {
     });
 
     test('early cancellation flow', () => {
-      const states: OrderStatus[] = ['CREATED', 'PAYMENT_PENDING', 'PAID'];
+      const states: OrderStatus[] = [OrderStatus.CREATED, OrderStatus.PAYMENT_PENDING, OrderStatus.PAID];
 
       states.forEach((status) => {
-        expect(isValidTransition(status, 'CANCELLED')).toBe(true);
+        expect(isValidTransition(status, OrderStatus.CANCELLED)).toBe(true);
         expect(canCustomerCancel(status)).toBe(true);
       });
     });
 
     test('cannot return to earlier states', () => {
-      expect(isValidTransition('COMPLETED', 'READY')).toBe(false);
-      expect(isValidTransition('READY', 'PREPARING')).toBe(false);
-      expect(isValidTransition('PREPARING', 'ACCEPTED')).toBe(false);
-      expect(isValidTransition('ACCEPTED', 'PAID')).toBe(false);
-      expect(isValidTransition('PAID', 'PAYMENT_PENDING')).toBe(false);
+      expect(isValidTransition(OrderStatus.COMPLETED, OrderStatus.READY)).toBe(false);
+      expect(isValidTransition(OrderStatus.READY, OrderStatus.PREPARING)).toBe(false);
+      expect(isValidTransition(OrderStatus.PREPARING, OrderStatus.ACCEPTED)).toBe(false);
+      expect(isValidTransition(OrderStatus.ACCEPTED, OrderStatus.PAID)).toBe(false);
+      expect(isValidTransition(OrderStatus.PAID, OrderStatus.PAYMENT_PENDING)).toBe(false);
     });
   });
 });

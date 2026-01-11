@@ -1,4 +1,5 @@
-import { OrderStatus, Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
+import { OrderStatus } from '@restaurant-saas/shared';
 import prisma from '../../../db/prisma';
 import { NotFoundError, ValidationError, ForbiddenError } from '../../../lib/errors';
 import logger from '../../../lib/logger';
@@ -112,9 +113,7 @@ export class OrdersService {
         restaurantId,
         order.id,
         {
-          amount: calculation.total,
-          currency: 'USD',
-          paymentMethod: 'STRIPE',
+          orderId: order.id
         }
       );
 
@@ -187,7 +186,7 @@ export class OrdersService {
     const skip = (page - 1) * pageSize;
 
     // Build where clause
-    const where: Prisma.OrderWhereInput = {
+    const where = {
       restaurantId,
       ...(filters.status && { status: filters.status }),
       ...(filters.dateFrom && { createdAt: { gte: filters.dateFrom } }),
@@ -213,7 +212,7 @@ export class OrdersService {
       }),
     ]);
 
-    const items: OrderSummaryDTO[] = orders.map((order) => ({
+    const items: OrderSummaryDTO[] = (orders as any[]).map((order: any) => ({
       id: order.id,
       customerName: order.customerName || undefined,
       status: order.status,

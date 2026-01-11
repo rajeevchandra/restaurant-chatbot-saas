@@ -1,4 +1,5 @@
-import { Order, OrderItem, Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
+import { OrderStatus, Order, OrderItem } from '@restaurant-saas/shared';
 import { BaseRepository } from '../../lib/BaseRepository';
 import { NotFoundError } from '../../lib/errors';
 

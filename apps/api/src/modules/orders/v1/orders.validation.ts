@@ -1,5 +1,6 @@
 import { z } from 'zod';
-import { OrderStatus } from '@prisma/client';
+import { Prisma } from '@prisma/client';
+import { OrderStatus } from '@restaurant-saas/shared';
 
 /**
  * Validation Schemas for Orders Module

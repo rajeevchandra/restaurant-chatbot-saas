@@ -59,7 +59,7 @@ export class OrderService {
 
     // Validate prices match
     for (const orderItem of data.items) {
-      const menuItem = menuItems.find((mi) => mi.id === orderItem.menuItemId);
+      const menuItem = menuItems.find((mi: any) => mi.id === orderItem.menuItemId);
       if (!menuItem) {
         throw new ValidationError(`Menu item ${orderItem.menuItemId} not found`);
       }
@@ -79,8 +79,8 @@ export class OrderService {
     const total = subtotal + tax;
 
     // Enrich items with menu item names
-    const enrichedItems = data.items.map(item => {
-      const menuItem = menuItems.find(mi => mi.id === item.menuItemId);
+    const enrichedItems = data.items.map((item: any) => {
+      const menuItem = menuItems.find((mi: any) => mi.id === item.menuItemId);
       return {
         ...item,
         name: menuItem?.name || 'Unknown Item',

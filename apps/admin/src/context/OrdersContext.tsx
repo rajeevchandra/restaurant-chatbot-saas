@@ -1,27 +1,10 @@
 "use client";
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { getApiClient } from '@/lib/apiClient';
-
-interface Order {
-  id: string;
-  customerName: string;
-  customerEmail: string;
-  customerPhone: string;
-  total: number;
-  subtotal: number;
-  tax: number;
-  status: string;
-  orderType: string;
-  createdAt: string;
-  updatedAt: string;
-  items: any[];
-  deliveryAddress?: string;
-  specialInstructions?: string;
-  statusHistory?: { status: string; timestamp: string }[];
-}
+import type { OrderDTO } from '@restaurant-saas/shared';
 
 interface OrdersContextType {
-  orders: Order[];
+  orders: OrderDTO[];
   loading: boolean;
   refresh: () => Promise<void>;
 }
@@ -29,7 +12,7 @@ interface OrdersContextType {
 const OrdersContext = createContext<OrdersContextType | undefined>(undefined);
 
 export const OrdersProvider = ({ children }: { children: ReactNode }) => {
-  const [orders, setOrders] = useState<Order[]>([]);
+  const [orders, setOrders] = useState<OrderDTO[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchOrders = async () => {
@@ -37,7 +20,17 @@ export const OrdersProvider = ({ children }: { children: ReactNode }) => {
     try {
       const response = await getApiClient().getOrders({ limit: 100 });
       if (response.success && response.data) {
-        const fetchedOrders = response.data.items || response.data;
+        const fetchedOrders = (response.data.items || response.data).map((order: any) => ({
+          ...order,
+          items: order.items || [],
+          restaurantId: order.restaurantId || '',
+          status: order.status,
+          subtotal: order.subtotal ?? 0,
+          tax: order.tax ?? 0,
+          total: order.total ?? 0,
+          createdAt: order.createdAt ? new Date(order.createdAt) : new Date(),
+          updatedAt: order.updatedAt ? new Date(order.updatedAt) : new Date(),
+        }));
         setOrders(fetchedOrders);
       }
     } catch (error) {

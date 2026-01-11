@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { ordersController } from './orders.controller';
 import { requireAuth, requireRole } from '../../../middleware/auth';
+import { UserRole } from '@restaurant-saas/shared';
 import { attachTenant, requireTenant } from '../../../middleware/tenant';
 import { validate } from '../../../middleware/validate';
 import rateLimit from 'express-rate-limit';
@@ -154,7 +155,7 @@ router.put(
   requireAuth(),
   attachTenant(),
   requireTenant(),
-  requireRole('OWNER', 'MANAGER', 'STAFF'),
+  requireRole(UserRole.OWNER, UserRole.MANAGER, UserRole.STAFF),
   validate(updateOrderStatusSchema),
   (req, res, next) => ordersController.updateOrderStatus(req, res).catch(next)
 );
@@ -198,7 +199,7 @@ router.post(
   requireAuth(),
   attachTenant(),
   requireTenant(),
-  requireRole('OWNER', 'MANAGER'),
+  requireRole(UserRole.OWNER, UserRole.MANAGER),
   validate(cancelAdminOrderSchema),
   (req, res, next) => ordersController.cancelOrder(req, res).catch(next)
 );

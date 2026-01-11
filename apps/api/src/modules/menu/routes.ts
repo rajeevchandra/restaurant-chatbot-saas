@@ -10,7 +10,8 @@ import {
   createOptionSchema,
   updateOptionSchema,
   createOptionValueSchema,
-  updateOptionValueSchema
+  updateOptionValueSchema,
+  UserRole
 } from '@restaurant-saas/shared';
 
 const router = Router();
@@ -45,7 +46,7 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
 router.post(
   '/categories',
   authenticate,
-  authorize('OWNER', 'MANAGER'),
+  authorize(UserRole.OWNER, UserRole.MANAGER),
   validate(createCategorySchema),
   async (req: AuthRequest, res: Response) => {
     const data = req.body;
@@ -67,7 +68,7 @@ router.post(
 router.patch(
   '/categories/:id',
   authenticate,
-  authorize('OWNER', 'MANAGER'),
+  authorize(UserRole.OWNER, UserRole.MANAGER),
   validate(updateCategorySchema),
   async (req: AuthRequest, res: Response) => {
     const { id } = req.params;
@@ -94,7 +95,7 @@ router.patch(
 router.delete(
   '/categories/:id',
   authenticate,
-  authorize('OWNER', 'MANAGER'),
+  authorize(UserRole.OWNER, UserRole.MANAGER),
   async (req: AuthRequest, res: Response) => {
     const { id } = req.params;
 
@@ -118,7 +119,7 @@ router.delete(
 router.post(
   '/items',
   authenticate,
-  authorize('OWNER', 'MANAGER'),
+  authorize(UserRole.OWNER, UserRole.MANAGER),
   validate(createMenuItemSchema),
   async (req: AuthRequest, res: Response) => {
     const data = req.body;
@@ -153,7 +154,7 @@ router.post(
 router.patch(
   '/items/:id',
   authenticate,
-  authorize('OWNER', 'MANAGER'),
+  authorize(UserRole.OWNER, UserRole.MANAGER),
   validate(updateMenuItemSchema),
   async (req: AuthRequest, res: Response) => {
     const { id } = req.params;
@@ -191,7 +192,7 @@ router.patch(
 router.delete(
   '/items/:id',
   authenticate,
-  authorize('OWNER', 'MANAGER'),
+  authorize(UserRole.OWNER, UserRole.MANAGER),
   async (req: AuthRequest, res: Response) => {
     const { id } = req.params;
 
@@ -215,7 +216,7 @@ router.delete(
 router.post(
   '/options',
   authenticate,
-  authorize('OWNER', 'MANAGER'),
+  authorize(UserRole.OWNER, UserRole.MANAGER),
   validate(createOptionSchema),
   async (req: AuthRequest, res: Response) => {
     const data = req.body;
@@ -247,7 +248,7 @@ router.post(
 router.patch(
   '/options/:id',
   authenticate,
-  authorize('OWNER', 'MANAGER'),
+  authorize(UserRole.OWNER, UserRole.MANAGER),
   validate(updateOptionSchema),
   async (req: AuthRequest, res: Response) => {
     const { id } = req.params;
@@ -277,7 +278,7 @@ router.patch(
 router.delete(
   '/options/:id',
   authenticate,
-  authorize('OWNER', 'MANAGER'),
+  authorize(UserRole.OWNER, UserRole.MANAGER),
   async (req: AuthRequest, res: Response) => {
     const { id } = req.params;
 
@@ -304,7 +305,7 @@ router.delete(
 router.post(
   '/option-values',
   authenticate,
-  authorize('OWNER', 'MANAGER'),
+  authorize(UserRole.OWNER, UserRole.MANAGER),
   validate(createOptionValueSchema),
   async (req: AuthRequest, res: Response) => {
     const data = req.body;
@@ -338,7 +339,7 @@ router.post(
 router.patch(
   '/option-values/:id',
   authenticate,
-  authorize('OWNER', 'MANAGER'),
+  authorize(UserRole.OWNER, UserRole.MANAGER),
   validate(updateOptionValueSchema),
   async (req: AuthRequest, res: Response) => {
     const { id } = req.params;
@@ -370,7 +371,7 @@ router.patch(
 router.delete(
   '/option-values/:id',
   authenticate,
-  authorize('OWNER', 'MANAGER'),
+  authorize(UserRole.OWNER, UserRole.MANAGER),
   async (req: AuthRequest, res: Response) => {
     const { id } = req.params;
 

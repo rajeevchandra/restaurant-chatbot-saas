@@ -1,5 +1,6 @@
 import prisma from '../../../db/prisma';
-import { PaymentProvider, PaymentStatus, Payment, Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
+import { PaymentStatus, PaymentProvider, Payment } from '@restaurant-saas/shared';
 import {
   UpdatePaymentConfigDTO,
   PaymentConfigDTO,
@@ -508,7 +509,7 @@ export class PaymentsService {
   }
 
   private toPaymentConfigDTO(
-    config: Prisma.RestaurantPaymentConfigGetPayload<{}>
+    config: any
   ): PaymentConfigDTO {
     return {
       id: config.id,

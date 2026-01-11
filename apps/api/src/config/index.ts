@@ -1,9 +1,8 @@
-import dotenv from 'dotenv';
+// Always load .env from current working directory
+import 'dotenv/config';
 import path from 'path';
 import { validateEnv } from './env.validation';
 
-// Load .env from the workspace root (two levels up from this file)
-dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
 
 // Validate environment variables at startup
 const env = validateEnv();

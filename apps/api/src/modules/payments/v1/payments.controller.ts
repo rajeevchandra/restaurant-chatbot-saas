@@ -8,7 +8,8 @@ import {
   TestConnectionInput,
   CreatePaymentIntentInput,
 } from './payments.validation';
-import { PaymentProvider } from '@prisma/client';
+import { Prisma } from '@prisma/client';
+import { PaymentProvider } from '@restaurant-saas/shared';
 
 const paymentsService = new PaymentsService();
 

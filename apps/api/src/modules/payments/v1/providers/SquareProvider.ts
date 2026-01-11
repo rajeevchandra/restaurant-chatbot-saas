@@ -1,5 +1,6 @@
 import { Client, Environment } from 'square';
-import { Payment, PaymentStatus } from '@prisma/client';
+import { Prisma } from '@prisma/client';
+import { PaymentStatus, Payment } from '@restaurant-saas/shared';
 import crypto from 'crypto';
 import { BasePaymentProvider } from './BaseProvider';
 import {

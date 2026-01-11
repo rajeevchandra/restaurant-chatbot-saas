@@ -1,4 +1,6 @@
-import { OrderStatus, Order, OrderItem, Prisma } from '@prisma/client';
+export { OrderDTO, OrderItemDTO, SelectedOption, OrderSummaryDTO, PaginatedOrders, OrderWithItems } from '@restaurant-saas/shared';
+import { Prisma } from '@prisma/client';
+import { OrderStatus, Order, OrderItem, OrderDTO, OrderItemDTO, SelectedOption, OrderSummaryDTO, PaginatedOrders, OrderWithItems } from '@restaurant-saas/shared';
 
 /**
  * Order DTOs and Types
@@ -14,10 +16,6 @@ export interface CreateOrderItemDTO {
   selectedOptions?: SelectedOption[];
 }
 
-export interface SelectedOption {
-  optionId: string;
-  valueIds: string[]; // Array of selected value IDs
-}
 
 export interface CreateOrderDTO {
   customerName?: string;
@@ -46,64 +44,7 @@ export interface ListOrdersFilters {
   pageSize?: number;
 }
 
-// ========================================
-// Response DTOs
-// ========================================
-
-export interface OrderItemDTO {
-  id: string;
-  menuItemId: string;
-  menuItemName: string;
-  quantity: number;
-  unitPrice: number;
-  totalPrice: number;
-  selectedOptions?: SelectedOption[];
-}
-
-export interface OrderDTO {
-  id: string;
-  restaurantId: string;
-  customerName?: string;
-  customerEmail?: string;
-  customerPhone?: string;
-  status: OrderStatus;
-  subtotal: number;
-  tax: number;
-  total: number;
-  notes?: string;
-  items: OrderItemDTO[];
-  checkoutUrl?: string;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-export interface OrderSummaryDTO {
-  id: string;
-  customerName?: string;
-  status: OrderStatus;
-  total: number;
-  itemCount: number;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-export interface PaginatedOrders {
-  items: OrderSummaryDTO[];
-  pagination: {
-    page: number;
-    pageSize: number;
-    total: number;
-    totalPages: number;
-  };
-}
-
-// ========================================
-// Database Types with Relations
-// ========================================
-
-export type OrderWithItems = Order & {
-  items: OrderItem[];
-};
+// Response DTOs and DB types now imported from shared
 
 // ========================================
 // Pricing Calculation Types

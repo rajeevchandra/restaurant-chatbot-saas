@@ -47,9 +47,8 @@ export default function InventoryPage() {
     setLoading(true);
     try {
       const response = await getApiClient().getInventory();
-      if (response.success && response.data) {
-        const items = Array.isArray(response.data) ? response.data : response.data.items || [];
-        setInventory(items.map((item: any) => ({
+      if (response.success && Array.isArray(response.data)) {
+        setInventory(response.data.map((item: any) => ({
           id: item.id,
           menuItemId: item.menuItemId || item.id,
           menuItemName: item.menuItem?.name || item.name || 'Unknown Item',
@@ -60,8 +59,8 @@ export default function InventoryPage() {
           lastUpdated: item.updatedAt || item.lastUpdated || new Date().toISOString(),
         })));
       }
-    } catch (error) {
-      console.error('Failed to load inventory:', error);
+    } catch (err) {
+      console.error('Failed to load inventory', err);
     } finally {
       setLoading(false);
     }

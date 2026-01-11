@@ -1,6 +1,7 @@
 import { Router, Response } from 'express';
 import prisma from '../../db/prisma';
 import { authenticate, authorize, AuthRequest } from '../../middleware/auth';
+import { UserRole } from '@restaurant-saas/shared';
 import { validate } from '../../middleware/validate';
 import { updateInventorySchema, toggleSoldOutSchema } from '@restaurant-saas/shared';
 
@@ -51,7 +52,8 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
   } catch (err) {
     console.error('INVENTORY ROUTE: error during query', err);
     if (!res.headersSent) {
-      res.status(500).json({ error: 'Failed to fetch inventory', details: err?.message });
+      const details = typeof err === 'object' && err && 'message' in err ? (err as any).message : undefined;
+      res.status(500).json({ error: 'Failed to fetch inventory', details });
       console.log('INVENTORY ROUTE: error response sent');
     } else {
       console.log('INVENTORY ROUTE: headers already sent after error');
@@ -100,7 +102,7 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
 router.patch(
   '/:menuItemId',
   authenticate,
-  authorize('OWNER', 'MANAGER', 'STAFF'),
+  authorize(UserRole.OWNER, UserRole.MANAGER, UserRole.STAFF),
   validate(updateInventorySchema),
   async (req: AuthRequest, res: Response) => {
     const { menuItemId } = req.params;
@@ -170,7 +172,7 @@ router.patch(
 router.patch(
   '/:menuItemId/sold-out',
   authenticate,
-  authorize('OWNER', 'MANAGER', 'STAFF'),
+  authorize(UserRole.OWNER, UserRole.MANAGER, UserRole.STAFF),
   validate(toggleSoldOutSchema),
   async (req: AuthRequest, res: Response) => {
     const { menuItemId } = req.params;

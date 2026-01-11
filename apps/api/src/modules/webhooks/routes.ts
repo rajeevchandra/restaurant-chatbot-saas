@@ -3,6 +3,7 @@ import prisma from '../../db/prisma';
 import { createPaymentAdapter } from '../payments/adapter';
 import { decryptPaymentCredentials } from '../payments/v1/encryption';
 import { isValidTransition } from '../orders/stateMachine';
+import { OrderStatus, PaymentProvider } from '@restaurant-saas/shared';
 
 const router = Router();
 
@@ -108,7 +109,6 @@ router.post('/stripe', async (req: Request, res: Response) => {
       console.error('❌ Missing payload/rawBody');
       return res.status(400).json({ error: 'Missing request body' });
     }
-
     // Extract session ID or payment intent ID from event to find associated payment
     const tempEvent = typeof payload === 'string' ? JSON.parse(payload) : payload;
     
@@ -127,7 +127,6 @@ router.post('/stripe', async (req: Request, res: Response) => {
     }
 
     console.log('✅ Webhook received:', tempEvent.type, 'Session ID:', providerId);
-
     // Find payment by checkout session ID
     const payment = await prisma.payment.findFirst({
       where: {
@@ -169,7 +168,7 @@ router.post('/stripe', async (req: Request, res: Response) => {
 
     // Verify webhook signature
     const decryptedKey = decryptPaymentCredentials(paymentConfig.encryptedSecretKey);
-    const adapter = createPaymentAdapter('STRIPE', {
+    const adapter = createPaymentAdapter(PaymentProvider.STRIPE, {
       secretKey: decryptedKey,
       webhookSecret: paymentConfig.webhookSecret,
     });
@@ -194,17 +193,17 @@ router.post('/stripe', async (req: Request, res: Response) => {
     // Update payment and order status
     if (processed.status === 'succeeded') {
       console.log('💰 Payment succeeded! Updating order to PAID...');
-      await prisma.$transaction(async (tx) => {
+      await prisma.$transaction(async (tx: any) => {
         await tx.payment.update({
           where: { id: payment.id },
           data: { status: 'COMPLETED' },
         });
 
         // Validate state transition
-        if (isValidTransition(payment.order.status, 'PAID')) {
+        if (isValidTransition(payment.order.status, OrderStatus.PAID)) {
           await tx.order.update({
             where: { id: payment.orderId },
-            data: { status: 'PAID' },
+            data: { status: OrderStatus.PAID },
           });
           console.log('✅ Order updated to PAID successfully!');
         } else {
@@ -215,21 +214,21 @@ router.post('/stripe', async (req: Request, res: Response) => {
       await recordWebhookEvent('STRIPE', eventId, event.type, event, 'COMPLETED');
     } else if (processed.status === 'failed') {
       console.log('❌ Payment failed! Cancelling order...');
-      await prisma.$transaction(async (tx) => {
+      await prisma.$transaction(async (tx: any) => {
         await tx.payment.update({
           where: { id: payment.id },
           data: { status: 'FAILED' },
         });
 
         // Cancel order if payment failed
-        if (isValidTransition(payment.order.status, 'CANCELLED')) {
+        if (isValidTransition(payment.order.status, OrderStatus.CANCELLED)) {
           await tx.order.update({
             where: { id: payment.orderId },
-            data: { status: 'CANCELLED' },
+            data: { status: OrderStatus.CANCELLED },
           });
         }
       });
-
+        provider: PaymentProvider.SQUARE,
       await recordWebhookEvent('STRIPE', eventId, event.type, event, 'COMPLETED');
     } else if (processed.status === 'refunded') {
       await prisma.payment.update({
@@ -248,7 +247,7 @@ router.post('/stripe', async (req: Request, res: Response) => {
   }
 });
 
-// Square webhook
+        provider: PaymentProvider.SQUARE,
 /**
  * @swagger
  * /api/webhooks/square:
@@ -303,7 +302,7 @@ router.post('/square', async (req: Request, res: Response) => {
 
     // Check idempotency
     const eventId = tempEvent.event_id || tempEvent.id;
-    if (await checkIdempotency(eventId, 'SQUARE')) {
+    if (await checkIdempotency(eventId, PaymentProvider.SQUARE)) {
       console.log(`Duplicate webhook event ${eventId}, skipping`);
       return res.json({ received: true });
     }
@@ -312,20 +311,20 @@ router.post('/square', async (req: Request, res: Response) => {
     const paymentConfig = await prisma.restaurantPaymentConfig.findFirst({
       where: {
         restaurantId: payment.restaurantId,
-        provider: 'SQUARE',
+        provider: PaymentProvider.SQUARE,
         isActive: true,
       },
     });
 
     if (!paymentConfig || !paymentConfig.webhookSecret) {
       console.log('No webhook secret configured for restaurant');
-      await recordWebhookEvent('SQUARE', eventId, tempEvent.type, tempEvent, 'NO_CONFIG');
+      await recordWebhookEvent(PaymentProvider.SQUARE, eventId, tempEvent.type, tempEvent, 'NO_CONFIG');
       return res.status(400).json({ error: 'Webhook secret not configured' });
     }
 
     // Verify webhook signature
     const decryptedKey = decryptPaymentCredentials(paymentConfig.encryptedSecretKey);
-    const adapter = createPaymentAdapter('SQUARE', {
+    const adapter = createPaymentAdapter(PaymentProvider.SQUARE, {
       secretKey: decryptedKey,
       webhookSecret: paymentConfig.webhookSecret,
     });
@@ -335,7 +334,7 @@ router.post('/square', async (req: Request, res: Response) => {
       event = adapter.verifyWebhook(payload, signature);
     } catch (err) {
       console.error('Webhook verification failed:', err);
-      await recordWebhookEvent('SQUARE', eventId, tempEvent.type, tempEvent, 'VERIFICATION_FAILED');
+      await recordWebhookEvent(PaymentProvider.SQUARE, eventId, tempEvent.type, tempEvent, 'VERIFICATION_FAILED');
       return res.status(400).json({ error: 'Webhook verification failed' });
     }
 
@@ -343,36 +342,36 @@ router.post('/square', async (req: Request, res: Response) => {
     const processed = await adapter.processWebhook(event);
 
     // Record webhook event
-    await recordWebhookEvent('SQUARE', eventId, event.type, event, 'PROCESSING');
+    await recordWebhookEvent(PaymentProvider.SQUARE, eventId, event.type, event, 'PROCESSING');
 
     // Update payment and order status
     if (processed.status === 'succeeded') {
-      await prisma.$transaction(async (tx) => {
+      await prisma.$transaction(async (tx: any) => {
         await tx.payment.update({
           where: { id: payment.id },
           data: { status: 'COMPLETED' },
         });
 
-        if (isValidTransition(payment.order.status, 'PAID')) {
+        if (isValidTransition(payment.order.status, OrderStatus.PAID)) {
           await tx.order.update({
             where: { id: payment.orderId },
-            data: { status: 'PAID' },
+            data: { status: OrderStatus.PAID },
           });
         }
       });
 
       await recordWebhookEvent('SQUARE', eventId, event.type, event, 'COMPLETED');
     } else if (processed.status === 'failed') {
-      await prisma.$transaction(async (tx) => {
+      await prisma.$transaction(async (tx: any) => {
         await tx.payment.update({
           where: { id: payment.id },
           data: { status: 'FAILED' },
         });
 
-        if (isValidTransition(payment.order.status, 'CANCELLED')) {
+        if (isValidTransition(payment.order.status, OrderStatus.CANCELLED)) {
           await tx.order.update({
             where: { id: payment.orderId },
-            data: { status: 'CANCELLED' },
+            data: { status: OrderStatus.CANCELLED },
           });
         }
       });

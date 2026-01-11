@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { menuController } from './menu.controller';
 import { requireAuth, requireRole } from '../../../middleware/auth';
+import { UserRole } from '@restaurant-saas/shared';
 import { attachTenant, requireTenant } from '../../../middleware/tenant';
 import { validate } from '../../../middleware/validate';
 import rateLimit from 'express-rate-limit';
@@ -121,7 +122,7 @@ router.post(
   requireAuth(),
   attachTenant(),
   requireTenant(),
-  requireRole('OWNER', 'MANAGER'),
+  requireRole(UserRole.OWNER, UserRole.MANAGER),
   validate(createCategorySchema),
   (req, res, next) => menuController.createCategory(req, res).catch(next)
 );
@@ -172,7 +173,7 @@ router.put(
   requireAuth(),
   attachTenant(),
   requireTenant(),
-  requireRole('OWNER', 'MANAGER'),
+  requireRole(UserRole.OWNER, UserRole.MANAGER),
   validate(updateCategorySchema),
   (req, res, next) => menuController.updateCategory(req, res).catch(next)
 );
@@ -204,7 +205,7 @@ router.delete(
   requireAuth(),
   attachTenant(),
   requireTenant(),
-  requireRole('OWNER'),
+  requireRole(UserRole.OWNER),
   validate(categoryIdSchema),
   (req, res, next) => menuController.deleteCategory(req, res).catch(next)
 );
@@ -338,7 +339,7 @@ router.post(
   requireAuth(),
   attachTenant(),
   requireTenant(),
-  requireRole('OWNER', 'MANAGER'),
+  requireRole(UserRole.OWNER, UserRole.MANAGER),
   validate(createMenuItemSchema),
   (req, res, next) => menuController.createMenuItem(req, res).catch(next)
 );
@@ -398,7 +399,7 @@ router.put(
   requireAuth(),
   attachTenant(),
   requireTenant(),
-  requireRole('OWNER', 'MANAGER'),
+  requireRole(UserRole.OWNER, UserRole.MANAGER),
   validate(updateMenuItemSchema),
   (req, res, next) => menuController.updateMenuItem(req, res).catch(next)
 );
@@ -428,7 +429,7 @@ router.delete(
   requireAuth(),
   attachTenant(),
   requireTenant(),
-  requireRole('OWNER'),
+  requireRole(UserRole.OWNER),
   validate(menuItemIdSchema),
   (req, res, next) => menuController.deleteMenuItem(req, res).catch(next)
 );

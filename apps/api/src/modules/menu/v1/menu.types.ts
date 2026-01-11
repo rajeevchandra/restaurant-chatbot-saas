@@ -1,4 +1,4 @@
-import { MenuCategory, MenuItem, MenuItemOption, MenuItemOptionValue } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 
 /**
  * DTO Types for Menu Module
@@ -145,6 +145,7 @@ export interface PaginatedResponse<T> {
     totalPages: number;
   };
 }
+import { MenuCategory, MenuItem, MenuItemOption, MenuItemOptionValue } from '@restaurant-saas/shared';
 
 // Database models with relations
 export type CategoryWithRelations = MenuCategory & {

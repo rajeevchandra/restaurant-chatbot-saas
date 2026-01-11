@@ -1,5 +1,6 @@
 import Stripe from 'stripe';
-import { Payment, PaymentStatus } from '@prisma/client';
+import { Prisma } from '@prisma/client';
+import { PaymentStatus, Payment } from '@restaurant-saas/shared';
 import { BasePaymentProvider } from './BaseProvider';
 import {
   CheckoutSessionResult,

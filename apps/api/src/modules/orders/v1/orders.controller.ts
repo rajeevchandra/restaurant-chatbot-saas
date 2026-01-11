@@ -10,7 +10,8 @@ import type {
   UpdateOrderStatusInput,
   CancelAdminOrderInput,
 } from './orders.validation';
-import { OrderStatus } from '@prisma/client';
+import { Prisma } from '@prisma/client';
+import { OrderStatus } from '@restaurant-saas/shared';
 
 export class OrdersController {
   // ========================================
@@ -85,7 +86,7 @@ export class OrdersController {
 
     // Parse query parameters
     const filters = {
-      status: query.status as OrderStatus | undefined,
+      status: query.status ? OrderStatus[query.status as keyof typeof OrderStatus] : undefined,
       q: query.q,
       dateFrom: query.dateFrom ? new Date(query.dateFrom) : undefined,
       dateTo: query.dateTo ? new Date(query.dateTo) : undefined,
@@ -132,7 +133,7 @@ export class OrdersController {
     const order = await ordersService.updateOrderStatus(
       restaurantId,
       orderId,
-      status,
+      OrderStatus[status as keyof typeof OrderStatus],
       notes
     );
     successResponse(res, order);

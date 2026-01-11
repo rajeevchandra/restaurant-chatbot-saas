@@ -1,3 +1,72 @@
+export interface PaymentConfigDTO {
+  id: string;
+  provider: PaymentProvider;
+  isActive: boolean;
+  hasPublicKey: boolean;
+  hasSecretKey: boolean;
+  hasWebhookSecret: boolean;
+  connectionStatus?: 'connected' | 'error' | 'not_tested';
+  metadata?: Record<string, any>;
+  createdAt: Date;
+  updatedAt: Date;
+}
+// ============ ORDER DTOs (shared) ============
+
+export interface SelectedOption {
+  optionId: string;
+  valueIds: string[]; // Array of selected value IDs
+}
+
+export interface OrderItemDTO {
+  id: string;
+  menuItemId: string;
+  menuItemName: string;
+  quantity: number;
+  unitPrice: number;
+  totalPrice: number;
+  selectedOptions?: SelectedOption[];
+}
+
+export interface OrderDTO {
+  id: string;
+  restaurantId: string;
+  customerName?: string;
+  customerEmail?: string;
+  customerPhone?: string;
+  status: OrderStatus;
+  subtotal: number;
+  tax: number;
+  total: number;
+  notes?: string;
+  items: OrderItemDTO[];
+  checkoutUrl?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface OrderSummaryDTO {
+  id: string;
+  customerName?: string;
+  status: OrderStatus;
+  total: number;
+  itemCount: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface PaginatedOrders {
+  items: OrderSummaryDTO[];
+  pagination: {
+    page: number;
+    pageSize: number;
+    total: number;
+    totalPages: number;
+  };
+}
+
+export type OrderWithItems = Order & {
+  items: OrderItem[];
+};
 // ============ ENUMS ============
 
 export enum UserRole {

@@ -35,9 +35,9 @@ router.get(
     });
 
     // Transform data to include sold-out flag at item level
-    const categoriesWithSoldOut = categories.map(category => ({
+    const categoriesWithSoldOut = categories.map((category: any) => ({
       ...category,
-      menuItems: category.menuItems.map(item => ({
+      menuItems: category.menuItems.map((item: any) => ({
         id: item.id,
         name: item.name,
         description: item.description,

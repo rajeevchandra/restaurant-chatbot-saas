@@ -82,20 +82,22 @@ export default function MenuPage() {
     setLoading(true);
     try {
       const response = await getApiClient().getMenuItems();
-      if (response.success && response.data) {
+      if (response.success && Array.isArray(response.data)) {
         // Group items by category
-        const items = Array.isArray(response.data) ? response.data : response.data.items || [];
+        const items = response.data.flatMap((cat: any) =>
+          (cat.menuItems || []).map((item: any) => ({
+            ...item,
+            categoryId: item.categoryId || cat.id,
+            category: { id: cat.id, name: cat.name },
+          }))
+        );
         const groupedByCategory: Record<string, MenuItem[]> = {};
-        
         items.forEach((item: any) => {
           const categoryName = item.category?.name || 'Uncategorized';
           if (!groupedByCategory[categoryName]) {
             groupedByCategory[categoryName] = [];
           }
-          groupedByCategory[categoryName].push({
-            ...item,
-            categoryId: item.categoryId || item.category?.id,
-          });
+          groupedByCategory[categoryName].push(item);
         });
         
         const categoriesData: Category[] = Object.entries(groupedByCategory).map(([name, menuItems], index) => ({

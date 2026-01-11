@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { authenticate, authorize } from '../../middleware/auth';
+import { UserRole } from '@restaurant-saas/shared';
 import { validate } from '../../middleware/validate';
 import { requireIdempotency, idempotency } from '../../middleware/idempotency';
 import { createOrderSchema, updateOrderStatusSchema } from '@restaurant-saas/shared';
@@ -328,7 +329,7 @@ router.post(
 router.patch(
   '/:id/status',
   authenticate,
-  authorize('OWNER', 'MANAGER', 'STAFF'),
+  authorize(UserRole.OWNER, UserRole.MANAGER, UserRole.STAFF),
   validate(updateOrderStatusSchema),
   idempotency,
   (req, res, next) => controller.updateOrderStatus(req, res).catch(next)

@@ -1,29 +1,28 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react';
+import { OrderStatus } from '@restaurant-saas/shared';
 
 interface OrderStatusCardProps {
-  orderId: string
-  status: 'PENDING' | 'PAID' | 'CONFIRMED' | 'PREPARING' | 'READY' | 'DELIVERED' | 'CANCELLED' | 'FAILED'
-  amount?: number
+  orderId: string;
+  status: OrderStatus;
+  amount?: number;
   items?: Array<{
-    name: string
-    quantity: number
-    price: number
-  }>
-  message?: string
-  estimatedTime?: string
-  onRefresh?: () => void
-  onCancel?: () => void
-  onDone?: () => void
-  isRefreshing?: boolean
+    name: string;
+    quantity: number;
+    price: number;
+  }>;
+  message?: string;
+  estimatedTime?: string;
+  onRefresh?: () => void;
+  onCancel?: () => void;
+  onDone?: () => void;
+  isRefreshing?: boolean;
 }
 
 const STATUS_TIMELINE = [
-  { key: 'PAID', label: 'Paid', icon: '💳' },
-  { key: 'CONFIRMED', label: 'Accepted', icon: '✅' },
-  { key: 'PREPARING', label: 'Preparing', icon: '👨‍🍳' },
-  { key: 'READY', label: 'Ready', icon: '🔔' },
-  { key: 'DELIVERED', label: 'Completed', icon: '🎉' },
-]
+  { key: OrderStatus.PAID, label: 'Paid', icon: '💳' },
+  { key: OrderStatus.PREPARING, label: 'Preparing', icon: '👨‍🍳' },
+  { key: OrderStatus.READY, label: 'Ready', icon: '🔔' },
+];
 
 export default function OrderStatusCard({ 
   orderId, 
@@ -40,10 +39,9 @@ export default function OrderStatusCard({
   const [showCancelConfirm, setShowCancelConfirm] = useState(false)
   const [autoRefreshIn, setAutoRefreshIn] = useState(10)
   const [lastRefresh, setLastRefresh] = useState(Date.now())
-
   // Auto-refresh countdown - but not for PAID status
   useEffect(() => {
-    if (!onRefresh || ['PAID', 'DELIVERED', 'CANCELLED', 'FAILED'].includes(status)) {
+    if (!onRefresh || [OrderStatus.PAID, OrderStatus.CANCELLED].includes(status)) {
       return
     }
 
@@ -71,16 +69,15 @@ export default function OrderStatusCard({
 
   const getStatusConfig = () => {
     switch (status) {
-      case 'PAID':
-      case 'CONFIRMED':
+      case OrderStatus.PAID:
         return {
-          icon: '✅',
-          title: 'Order Confirmed!',
+          icon: '💳',
+          title: 'Order Paid',
           color: '#10b981',
           bgColor: '#d1fae5',
-          description: message || 'Your order has been confirmed and will be prepared soon.'
+          description: message || 'Your order has been paid and will be prepared soon.'
         }
-      case 'PREPARING':
+      case OrderStatus.PREPARING:
         return {
           icon: '👨‍🍳',
           title: 'Preparing Your Order',
@@ -88,7 +85,7 @@ export default function OrderStatusCard({
           bgColor: '#fef3c7',
           description: message || 'Our kitchen is working on your order.'
         }
-      case 'READY':
+      case OrderStatus.READY:
         return {
           icon: '🔔',
           title: 'Order Ready!',
@@ -96,15 +93,7 @@ export default function OrderStatusCard({
           bgColor: '#d1fae5',
           description: message || 'Your order is ready for pickup or delivery.'
         }
-      case 'DELIVERED':
-        return {
-          icon: '🎉',
-          title: 'Delivered!',
-          color: '#10b981',
-          bgColor: '#d1fae5',
-          description: message || 'Your order has been delivered. Enjoy your meal!'
-        }
-      case 'CANCELLED':
+      case OrderStatus.CANCELLED:
         return {
           icon: '❌',
           title: 'Order Cancelled',
@@ -112,15 +101,6 @@ export default function OrderStatusCard({
           bgColor: '#fee2e2',
           description: message || 'This order has been cancelled.'
         }
-      case 'FAILED':
-        return {
-          icon: '⚠️',
-          title: 'Payment Failed',
-          color: '#ef4444',
-          bgColor: '#fee2e2',
-          description: message || 'Payment could not be processed.'
-        }
-      case 'PENDING':
       default:
         return {
           icon: '⏳',
@@ -137,8 +117,8 @@ export default function OrderStatusCard({
     return index >= 0 ? index : -1
   }
 
-  const canCancel = ['PAID', 'CONFIRMED'].includes(status)
-  const showRefresh = !['DELIVERED', 'CANCELLED', 'FAILED'].includes(status)
+  const canCancel = [OrderStatus.PAID].includes(status)
+  const showRefresh = ![OrderStatus.CANCELLED].includes(status)
   const config = getStatusConfig()
   const currentIndex = getStatusIndex()
 
@@ -228,7 +208,7 @@ export default function OrderStatusCard({
 
       <div className="order-actions">
         {/* Done button for PAID status */}
-        {status === 'PAID' && onDone && (
+        {status === OrderStatus.PAID && onDone && (
           <button
             className="done-order-action-btn"
             onClick={onDone}

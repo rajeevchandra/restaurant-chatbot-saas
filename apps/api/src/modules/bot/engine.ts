@@ -1,4 +1,5 @@
-import { BotSessionState } from '@prisma/client';
+import { Prisma } from '@prisma/client';
+import { BotSessionState } from '@restaurant-saas/shared';
 import prisma from '../../db/prisma';
 
 // Intent types for deterministic FSM
@@ -321,7 +322,7 @@ What would you like to do?`,
   ): Promise<any> {
     if (intent === 'browse_menu') {
       const categories = await this.getMenuCategories();
-      const categoryNames = categories.map(cat => cat.name);
+      const categoryNames = categories.map((cat: any) => cat.name);
       
       return {
         botResponse: {
@@ -385,13 +386,13 @@ What would you like to do?`,
 
     // Check if user selected a category
     const categories = await this.getMenuCategories();
-    const selectedCategory = categories.find(cat => 
+    const selectedCategory = categories.find((cat: any) => 
       message.toLowerCase().includes(cat.name.toLowerCase())
     );
 
     if (selectedCategory) {
       const categoryItems = await this.getMenuByCategory(selectedCategory.id);
-      const categoryNames = categories.map(cat => cat.name);
+      const categoryNames = categories.map((cat: any) => cat.name);
       
       return {
         botResponse: {
@@ -403,7 +404,7 @@ What would you like to do?`,
     }
 
     // Default: show category buttons
-    const categoryNames = categories.map(cat => cat.name);
+    const categoryNames = categories.map((cat: any) => cat.name);
     return {
       botResponse: {
         text: '', // Empty text so only buttons appear
@@ -453,7 +454,7 @@ What would you like to do?`,
 
     if (intent === 'browse_menu') {
       const categories = await this.getMenuCategories();
-      const categoryNames = categories.map(cat => cat.name);
+      const categoryNames = categories.map((cat: any) => cat.name);
       
       return {
         botResponse: {
@@ -478,7 +479,7 @@ What would you like to do?`,
     // Allow user to navigate back to menu/browsing
     if (intent === 'browse_menu') {
       const categories = await this.getMenuCategories();
-      const categoryNames = categories.map(cat => cat.name);
+      const categoryNames = categories.map((cat: any) => cat.name);
       
       return {
         botResponse: {
@@ -578,7 +579,7 @@ What would you like to do?`,
       }
 
       // Check if payment actually completed (in real app, verify with payment provider)
-      if (order.status === 'PAID' || order.payments.some(p => p.status === 'COMPLETED')) {
+      if (order.status === 'PAID' || order.payments.some((p: any) => p.status === 'COMPLETED')) { 
         return {
           botResponse: {
             text: `✅ Payment confirmed! Your order #${order.id.slice(0, 8)} is being prepared.\n\nTotal: $${Number(order.total).toFixed(2)}\n\nThank you for your order!`,
@@ -829,7 +830,7 @@ What would you like to do?`,
                        order.status === 'READY' ? '🔔' :
                        order.status === 'PAYMENT_PENDING' ? '💳' : '⏳';
     
-    const itemsList = order.items.map(item => 
+    const itemsList = order.items.map((item: any) => 
       `  • ${item.quantity}x ${item.menuItemName} - $${Number(item.unitPrice * item.quantity).toFixed(2)}`
     ).join('\n');
 

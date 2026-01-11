@@ -1,4 +1,5 @@
-import { UserRole } from '@prisma/client';
+import { Prisma } from '@prisma/client';
+import { UserRole } from '@restaurant-saas/shared';
 
 /**
  * JWT Access Token Payload

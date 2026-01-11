@@ -21,6 +21,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import { getApiClient } from '@/lib/apiClient';
+import type { PaymentConfigDTO } from '@restaurant-saas/shared';
 
 type Step = 1 | 2 | 3 | 4;
 
@@ -68,8 +69,8 @@ export default function PaymentsPage() {
     try {
       const response = await getApiClient().getPaymentConfig();
       if (response.success && response.data) {
-        const config = response.data;
-        if (config.provider) {
+        const config = response.data as PaymentConfigDTO | null;
+        if (config && config.provider) {
           setSelectedProvider(config.provider);
           setIsConfigured(true);
           setCurrentStep(4);

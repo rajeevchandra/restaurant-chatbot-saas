@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import { PageHeader } from '@/components/PageHeader';
 import { DataTable } from '@/components/DataTable';
 import { StatusPill, getOrderStatusVariant } from '@/components/StatusPill';
+import { OrderStatus } from '@restaurant-saas/shared';
+import type { OrderDTO } from '@restaurant-saas/shared';
 import { EmptyState } from '@/components/EmptyState';
 import {
   ShoppingBag,
@@ -22,8 +24,6 @@ import { formatCurrency, formatDateTime } from '@/lib/utils';
 import { getApiClient } from '@/lib/apiClient';
 import { useOrders } from '@/context/OrdersContext';
 
-type OrderStatus = 'CREATED' | 'PAID' | 'ACCEPTED' | 'PREPARING' | 'READY' | 'COMPLETED' | 'CANCELLED';
-type OrderType = 'PICKUP' | 'DELIVERY';
 
 interface OrderItem {
   id: string;
@@ -33,62 +33,47 @@ interface OrderItem {
   options?: { name: string; value: string }[];
 }
 
-interface Order {
-  id: string;
-  customerName: string;
-  customerEmail: string;
-  customerPhone: string;
-  total: number;
-  subtotal: number;
-  tax: number;
-  status: OrderStatus;
-  orderType: OrderType;
-  createdAt: string;
-  updatedAt: string;
-  items: OrderItem[];
-  deliveryAddress?: string;
-  specialInstructions?: string;
-  statusHistory: { status: OrderStatus; timestamp: string }[];
-}
+
 
 const STATUS_TABS: { label: string; value: OrderStatus | 'ALL' }[] = [
   { label: 'All', value: 'ALL' },
-  { label: 'New', value: 'CREATED' },
-  { label: 'Preparing', value: 'PREPARING' },
-  { label: 'Ready', value: 'READY' },
-  { label: 'Completed', value: 'COMPLETED' },
-  { label: 'Cancelled', value: 'CANCELLED' },
+  { label: 'New', value: OrderStatus.CREATED },
+  { label: 'Preparing', value: OrderStatus.PREPARING },
+  { label: 'Ready', value: OrderStatus.READY },
+  { label: 'Completed', value: OrderStatus.COMPLETED },
+  { label: 'Cancelled', value: OrderStatus.CANCELLED },
 ];
 
 const ALLOWED_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
-  CREATED: ['PAID', 'CANCELLED'],
-  PAID: ['ACCEPTED', 'CANCELLED'],
-  ACCEPTED: ['PREPARING', 'CANCELLED'],
-  PREPARING: ['READY', 'CANCELLED'],
-  READY: ['COMPLETED', 'CANCELLED'],
-  COMPLETED: [],
-  CANCELLED: [],
+  [OrderStatus.CREATED]: [OrderStatus.PAID, OrderStatus.CANCELLED],
+  [OrderStatus.PAYMENT_PENDING]: [OrderStatus.PAID, OrderStatus.CANCELLED],
+  [OrderStatus.PAID]: [OrderStatus.ACCEPTED, OrderStatus.CANCELLED],
+  [OrderStatus.ACCEPTED]: [OrderStatus.PREPARING, OrderStatus.CANCELLED],
+  [OrderStatus.PREPARING]: [OrderStatus.READY, OrderStatus.CANCELLED],
+  [OrderStatus.READY]: [OrderStatus.COMPLETED, OrderStatus.CANCELLED],
+  [OrderStatus.COMPLETED]: [],
+  [OrderStatus.CANCELLED]: [],
 };
 
 export default function OrdersPage() {
-  const { orders, loading, refresh } = useOrders();
+  const { orders, loading, refresh } = useOrders(); // orders: OrderDTO[]
   const [activeTab, setActiveTab] = useState<OrderStatus | 'ALL'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
-  const [orderTypeFilter, setOrderTypeFilter] = useState<OrderType | ''>('');
-  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  // Removed orderTypeFilter, not present in shared Order type
+  const [selectedOrder, setSelectedOrder] = useState<OrderDTO | null>(null);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
 
   // No need to fetch orders here, handled by context
 
   const filteredOrders = orders.filter((order) => {
     if (activeTab !== 'ALL' && order.status !== activeTab) return false;
-    if (orderTypeFilter && order.orderType !== orderTypeFilter) return false;
+    // Removed orderTypeFilter logic, not present in shared Order type
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       return (
         order.id.toLowerCase().includes(query) ||
-        order.customerName.toLowerCase().includes(query) ||
-        order.customerPhone.includes(query)
+        (order.customerName?.toLowerCase() || '').includes(query) ||
+        (order.customerPhone || '').includes(query)
       );
     }
     return true;
@@ -200,15 +185,7 @@ export default function OrdersPage() {
               className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-4 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
             />
           </div>
-          <select
-            value={orderTypeFilter}
-            onChange={(e) => setOrderTypeFilter(e.target.value as any)}
-            className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-          >
-            <option value="">All Types</option>
-            <option value="PICKUP">Pickup</option>
-            <option value="DELIVERY">Delivery</option>
-          </select>
+          {/* Removed orderTypeFilter select, not present in shared Order type */}
         </div>
 
         {/* Orders Table (Desktop) */}
@@ -233,9 +210,7 @@ export default function OrdersPage() {
                       <div className="text-sm font-medium text-gray-900">{order.customerName}</div>
                       <div className="text-sm text-gray-500">{order.customerEmail}</div>
                     </td>
-                    <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-600">
-                      {order.orderType}
-                    </td>
+                    {/* Removed orderType column, not present in shared Order type */}
                     <td className="whitespace-nowrap px-6 py-4 text-center text-sm text-gray-900">
                       {order.items.length}
                     </td>
@@ -329,12 +304,7 @@ export default function OrdersPage() {
                         <Phone className="h-4 w-4" />
                         {selectedOrder.customerPhone}
                       </div>
-                      {selectedOrder.deliveryAddress && (
-                        <div className="flex items-start gap-2 text-sm text-gray-600">
-                          <MapPin className="mt-0.5 h-4 w-4" />
-                          <span>{selectedOrder.deliveryAddress}</span>
-                        </div>
-                      )}
+                      {/* deliveryAddress removed: not present on OrderDTO */}
                     </div>
                   </div>
 
@@ -346,15 +316,11 @@ export default function OrdersPage() {
                         <div key={item.id} className="flex justify-between text-sm">
                           <div className="flex-1">
                             <p className="font-medium text-gray-900">
-                              {item.quantity}x {item.name}
+                              {item.quantity}x {item.menuItemName}
                             </p>
-                            {item.options && item.options.length > 0 && (
-                              <p className="mt-1 text-xs text-gray-500">
-                                {item.options.map((opt) => `${opt.name}: ${opt.value}`).join(', ')}
-                              </p>
-                            )}
+                             {/* item.options removed: not present on OrderItemDTO */}
                           </div>
-                          <p className="font-medium text-gray-900">{formatCurrency(item.price)}</p>
+                           <p className="font-medium text-gray-900">{formatCurrency(item.unitPrice)}</p>
                         </div>
                       ))}
                     </div>
@@ -376,48 +342,10 @@ export default function OrdersPage() {
                     </div>
                   </div>
 
-                  {/* Special Instructions */}
-                  {selectedOrder.specialInstructions && (
-                    <div>
-                      <h3 className="mb-2 text-sm font-semibold text-gray-900">Special Instructions</h3>
-                      <p className="rounded-lg border border-gray-200 bg-yellow-50 p-3 text-sm text-gray-700">
-                        {selectedOrder.specialInstructions}
-                      </p>
-                    </div>
-                  )}
+                  {/* specialInstructions removed: not present on OrderDTO */}
 
                   {/* Status Timeline */}
-                  <div>
-                    <h3 className="mb-3 text-sm font-semibold text-gray-900">Status Timeline</h3>
-                    <div className="space-y-4">
-                      {selectedOrder.statusHistory.map((history, index) => (
-                        <div key={index} className="flex gap-3">
-                          <div className="flex flex-col items-center">
-                            <div
-                              className={`flex h-8 w-8 items-center justify-center rounded-full ${
-                                index === selectedOrder.statusHistory.length - 1
-                                  ? 'bg-blue-100'
-                                  : 'bg-gray-100'
-                              }`}
-                            >
-                              {index === selectedOrder.statusHistory.length - 1 ? (
-                                <CheckCircle2 className="h-5 w-5 text-blue-600" />
-                              ) : (
-                                <div className="h-2 w-2 rounded-full bg-gray-400" />
-                              )}
-                            </div>
-                            {index < selectedOrder.statusHistory.length - 1 && (
-                              <div className="h-full w-0.5 bg-gray-200" />
-                            )}
-                          </div>
-                          <div className="flex-1 pb-4">
-                            <p className="text-sm font-medium text-gray-900">{history.status}</p>
-                            <p className="text-xs text-gray-500">{formatDateTime(history.timestamp)}</p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
+                    {/* StatusTimeline removed: not present on OrderDTO */}
                 </div>
 
                 {/* Footer Actions */}

@@ -1,6 +1,7 @@
 import { Router, Response } from 'express';
 import prisma from '../../db/prisma';
 import { authenticate, authorize, AuthRequest } from '../../middleware/auth';
+import { UserRole } from '@restaurant-saas/shared';
 
 const router = Router();
 
@@ -80,7 +81,7 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
 router.patch(
   '/',
   authenticate,
-  authorize('OWNER'),
+  authorize(UserRole.OWNER),
   async (req: AuthRequest, res: Response) => {
     const { name, description, address, phone, email, timezone, currency } = req.body;
 

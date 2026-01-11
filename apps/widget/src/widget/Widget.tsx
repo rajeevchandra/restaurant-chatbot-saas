@@ -8,6 +8,7 @@ import MenuItemCard from './components/MenuItemCard'
 import CheckoutForm from './components/CheckoutForm'
 import PaymentLink from './components/PaymentLink'
 import OrderStatusCard from './components/OrderStatusCard'
+import { OrderStatus } from '@restaurant-saas/shared';
 import NotificationOptIn from './components/NotificationOptIn'
 import { getSessionId } from '../lib/session'
 import { getCart, saveCart, clearCart } from '../lib/cart'
@@ -38,15 +39,15 @@ interface BotResponseData {
 }
 
 interface Order {
-  id: string
-  status: 'PENDING' | 'PAID' | 'CONFIRMED' | 'PREPARING' | 'READY' | 'DELIVERED' | 'CANCELLED' | 'FAILED'
-  totalAmount?: number
-  checkoutUrl?: string
+  id: string;
+  status: OrderStatus;
+  totalAmount?: number;
+  checkoutUrl?: string;
   items?: Array<{
-    menuItemName: string
-    quantity: number
-    unitPrice: number
-  }>
+    menuItemName: string;
+    quantity: number;
+    unitPrice: number;
+  }>;
 }
 
 interface WidgetProps {
@@ -437,7 +438,7 @@ export default function Widget({
           setCurrentOrder(order)
           
           // Stop polling if order is in terminal state
-          if (['PAID', 'FAILED', 'CANCELLED', 'DELIVERED'].includes(order.status)) {
+          if ([OrderStatus.PAID, OrderStatus.CANCELLED, OrderStatus.COMPLETED].includes(order.status)) {
             stopOrderPolling()
             
             // Only show terminal state message once per order
@@ -457,15 +458,6 @@ export default function Widget({
                   timestamp: new Date(),
                 }
                 setMessages((prev) => [...prev, successMessage])
-              } else if (order.status === 'FAILED') {
-                // Add failure message
-                const failMessage: Message = {
-                  id: Date.now().toString(),
-                  text: `⚠️ Payment failed for order #${orderId.slice(-8)}. Please try again.`,
-                  sender: 'bot',
-                  timestamp: new Date(),
-                }
-                setMessages((prev) => [...prev, failMessage])
               }
             }
           }
@@ -687,7 +679,7 @@ export default function Widget({
             ) : (
               <>
                 {/* Payment Link - shown when waiting for payment */}
-                {paymentData?.paymentLink && currentOrder?.status === 'PAYMENT_PENDING' && (
+                {paymentData?.paymentLink && currentOrder?.status === OrderStatus.PAYMENT_PENDING && (
                   <PaymentLink
                     paymentLink={paymentData.paymentLink}
                     amount={paymentData.amount}
@@ -699,7 +691,7 @@ export default function Widget({
                 )}
 
                 {/* Order Processing Indicator - shown while polling without payment link */}
-                {pollingOrderId && currentOrder?.status === 'PAYMENT_PENDING' && !paymentData?.paymentLink && (
+                {pollingOrderId && currentOrder?.status === OrderStatus.PAYMENT_PENDING && !paymentData?.paymentLink && (
                   <div className="order-processing">
                     <div className="spinner"></div>
                     <div className="processing-text">
@@ -710,7 +702,7 @@ export default function Widget({
                 )}
 
                 {/* Order Status Card - shown when order is in terminal state */}
-                {currentOrder && ['PAID', 'FAILED', 'CANCELLED', 'DELIVERED', 'CONFIRMED', 'PREPARING', 'READY'].includes(currentOrder.status) && (
+                {currentOrder && [OrderStatus.PAID, OrderStatus.CANCELLED, OrderStatus.PREPARING, OrderStatus.READY, OrderStatus.COMPLETED].includes(currentOrder.status) && (
                   <OrderStatusCard
                     orderId={currentOrder.id}
                     status={currentOrder.status}
@@ -732,7 +724,7 @@ export default function Widget({
                         }
                       }
                     }}
-                    onCancel={['PAID', 'CONFIRMED'].includes(currentOrder.status) ? handleCancelOrder : undefined}
+                    onCancel={[OrderStatus.PAID].includes(currentOrder.status) ? handleCancelOrder : undefined}
                     onDone={() => {
                       // Clear order state and show menu again
                       setCurrentOrder(null)

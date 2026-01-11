@@ -1,7 +1,7 @@
 import { Request, Response, Router } from 'express';
 import prisma from '../../db/prisma';
 import Stripe from 'stripe';
-import { decrypt } from '../../utils/crypto';
+import { decryptPaymentCredentials } from './v1/encryption';
 
 const router = Router();
 
@@ -24,17 +24,17 @@ router.post('/poll/:orderId', async (req: Request, res: Response) => {
 
     console.log(`🔄 Polling payment status for order: ${orderId}`);
 
-    // Find the order with its payment
+    // Find the order with its payments
     const order = await prisma.order.findUnique({
       where: { id: orderId },
-      include: { payment: true }
+      include: { payments: true }
     });
 
     if (!order) {
       return res.status(404).json({ error: 'Order not found' });
     }
 
-    if (!order.payment) {
+    if (!order.payments || order.payments.length === 0) {
       return res.status(404).json({ error: 'No payment associated with order' });
     }
 
@@ -49,15 +49,15 @@ router.post('/poll/:orderId', async (req: Request, res: Response) => {
     }
 
     // Only poll if payment is still pending
-    if (order.payment.status !== 'PENDING') {
+    // (Assume only one payment per order for now)
+    const payment = order.payments[0];
+    if (payment.status !== 'PENDING') {
       return res.json({
-        status: order.payment.status,
+        status: payment.status,
         message: 'Payment not pending',
         order: { id: order.id, status: order.status }
       });
     }
-
-    const payment = order.payment;
 
     // Get restaurant payment config
     const paymentConfig = await prisma.restaurantPaymentConfig.findFirst({
@@ -73,14 +73,11 @@ router.post('/poll/:orderId', async (req: Request, res: Response) => {
     }
 
     // Decrypt the secret key
-    const secretKey = decrypt(
-      paymentConfig.encryptedSecretKey,
-      process.env.PAYMENT_CONFIG_ENC_KEY!
-    );
+    const secretKey = decryptPaymentCredentials(paymentConfig.encryptedSecretKey);
 
     if (payment.provider === 'STRIPE') {
       const stripe = new Stripe(secretKey, {
-        apiVersion: '2025-12-15.clover'
+        apiVersion: '2023-10-16'
       });
 
       console.log(`🔍 Checking Stripe session: ${payment.providerPaymentId}`);

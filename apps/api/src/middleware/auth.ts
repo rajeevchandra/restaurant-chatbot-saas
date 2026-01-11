@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { config } from '../config';
 import { UnauthorizedError, ForbiddenError } from '../lib/errors';
-import { UserRole } from '@prisma/client';
+import { UserRole } from '@restaurant-saas/shared';
 import logger from '../lib/logger';
 
 /**

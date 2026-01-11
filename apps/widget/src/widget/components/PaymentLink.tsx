@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+
 import QRCode from 'qrcode'
 
 interface PaymentLinkProps {
@@ -7,16 +8,15 @@ interface PaymentLinkProps {
   orderId: string
   onCancelOrder: () => void
   apiUrl?: string
-  restaurantSlug?: string
+  restaurantSlug: string
 }
 
-export default function PaymentLink({ 
+function PaymentLink({
   paymentLink, 
   amount, 
   orderId,
   onCancelOrder,
-  apiUrl,
-  restaurantSlug
+  apiUrl
 }: PaymentLinkProps) {
   const [showCancelConfirm, setShowCancelConfirm] = useState(false)
   const [isPolling, setIsPolling] = useState(false)
@@ -33,7 +33,7 @@ export default function PaymentLink({
           dark: '#1f2937',
           light: '#ffffff',
         },
-      }).catch(err => {
+      }).catch((err: unknown) => {
         console.error('Error generating QR code:', err)
       })
     }
@@ -66,7 +66,7 @@ export default function PaymentLink({
         }
       } catch (error) {
         console.error('Failed to trigger payment poll:', error)
-        // Don't show error to user - widget polling will still work
+
       }
     }
   }
@@ -181,3 +181,5 @@ export default function PaymentLink({
     </div>
   )
 }
+export default PaymentLink;
+

@@ -1,22 +1,32 @@
-import { OrderStatus } from '@prisma/client';
+import { Prisma } from '@prisma/client';
+import { OrderStatus } from '@restaurant-saas/shared';
 
 // State machine for order status transitions
 export const VALID_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
-  CREATED: ['PAYMENT_PENDING', 'CANCELLED'],
-  PAYMENT_PENDING: ['PAID', 'CANCELLED'],
-  PAID: ['ACCEPTED', 'CANCELLED'],
-  ACCEPTED: ['PREPARING'],
-  PREPARING: ['READY'],
-  READY: ['COMPLETED'],
-  COMPLETED: [],
-  CANCELLED: [],
+  [OrderStatus.CREATED]: [OrderStatus.PAYMENT_PENDING, OrderStatus.CANCELLED],
+  [OrderStatus.PAYMENT_PENDING]: [OrderStatus.PAID, OrderStatus.CANCELLED],
+  [OrderStatus.PAID]: [OrderStatus.ACCEPTED, OrderStatus.CANCELLED],
+  [OrderStatus.ACCEPTED]: [OrderStatus.PREPARING],
+  [OrderStatus.PREPARING]: [OrderStatus.READY],
+  [OrderStatus.READY]: [OrderStatus.COMPLETED],
+  [OrderStatus.COMPLETED]: [],
+  [OrderStatus.CANCELLED]: [],
 };
 
-// Statuses that allow customer cancellation
 export const CUSTOMER_CANCELLABLE_STATUSES: OrderStatus[] = [
-  'CREATED',
-  'PAYMENT_PENDING',
-  'PAID',
+  OrderStatus.CREATED,
+  OrderStatus.PAYMENT_PENDING,
+  OrderStatus.PAID,
+];
+
+// Statuses that allow staff cancellation
+export const STAFF_CANCELLABLE_STATUSES: OrderStatus[] = [
+  OrderStatus.CREATED,
+  OrderStatus.PAYMENT_PENDING,
+  OrderStatus.PAID,
+  OrderStatus.ACCEPTED,
+  OrderStatus.PREPARING,
+  OrderStatus.READY,
 ];
 
 /**

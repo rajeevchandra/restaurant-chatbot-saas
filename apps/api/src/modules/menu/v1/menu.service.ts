@@ -39,7 +39,7 @@ export class MenuService {
       orderBy: [{ displayOrder: 'asc' }, { name: 'asc' }],
     });
 
-    return categories.map((cat) => ({
+    return categories.map((cat: any) => ({
       id: cat.id,
       name: cat.name,
       description: cat.description,
@@ -241,7 +241,7 @@ export class MenuService {
       prisma.menuItem.count({ where }),
     ]);
 
-    const itemDTOs: MenuItemDTO[] = items.map((item) => ({
+    const itemDTOs: MenuItemDTO[] = items.map((item: any) => ({
       id: item.id,
       categoryId: item.categoryId,
       name: item.name,
